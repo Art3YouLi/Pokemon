@@ -2,18 +2,20 @@
 # -*- coding:utf-8 -*-
 # author:ZeWen.Fang
 # datetime:2022/11/2 17:18
-import pathlib
-import tkinter.filedialog
 
+from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
+
+from GUIFunction import ValidateInput, AutoControl
 
 base_win_weight = 800
 base_win_height = 600
 
 
 class BaseWin:
+    """主窗口定义"""
     def __init__(self, master):
         self.root = master
         self.root.title('热拔插测试小工具')
@@ -23,6 +25,8 @@ class BaseWin:
 
 
 class BasePage:
+    """主页面定义"""
+    # 初始化页面，定义使用说明、使用前确认、功能按钮
     def __init__(self, master):
         self.msg = '====================================================================\n' \
                    '欢迎使用Auto Control BMW8015！！！\n' \
@@ -61,7 +65,7 @@ class BasePage:
         ensure_frm = ttk.Frame(self.frm0)
         ensure_frm.pack(fill=X, expand=YES, pady=10)
         self.ck_btn = ttk.Checkbutton(ensure_frm, text="请确认您已阅读上述使用说明", bootstyle='INFO-round-toggle',
-                                      variable=self.status, command=self.enable_btn)
+                                      variable=self.status, command=self.switch_btn_status)
         self.ck_btn.pack(side=RIGHT, padx=(15, 0))
 
         # 基准界面frame3 - 选择按钮
@@ -79,7 +83,8 @@ class BasePage:
                                   bootstyle='warning-outline', command=self.goto_shot_And)
         self.btn_and.pack(side=LEFT, fill=X, expand=YES, pady=10, padx=5)
 
-    def enable_btn(self):
+    # 根据确认复选框改变功能btn状态
+    def switch_btn_status(self):
         if self.status.get() == 1:  # 判断是否被选中
             self.btn_only.configure(state='active')
             self.btn_win.configure(state='active')
@@ -89,29 +94,35 @@ class BasePage:
             self.btn_win.configure(state='disabled')
             self.btn_and.configure(state='disabled')
 
+    # 配合Windows app使用
     def goto_shot_win(self):
         self.frm0.destroy()
         ShotPage(self.master, 'windows')
 
+    # 配合Android app使用
     def goto_shot_And(self):
         self.frm0.destroy()
         ShotPage(self.master, 'android')
 
+    # 只控制继电器控制软件
     def goto_shot_nothing(self):
         self.frm0.destroy()
         ShotPage(self.master, 'nothing')
 
 
 class ShotPage:
+    # 初始化参数配置页面
     def __init__(self, master, shot_type):
+        # 初始化部分变量
         self.parameter_frm = None
         self.master = master
         self.shot_type = shot_type
+        self.vi = ValidateInput()
 
-        self.win_columns = ['窗口名称', '按钮名称', '索引']
-        self.and_columns = ['属性', '值', '索引']
+        self.win_columns = ['窗口名称', '按钮名称', '索引', '等待时间(s)']
+        self.and_columns = ['属性', '值', '索引', '等待时间(s)']
 
-        # 输入参数
+        # 输入参数变量
         self.control_folder_path = None
         self.control_num = None
         self.control_duration = None
@@ -126,6 +137,11 @@ class ShotPage:
         self.and_port = None
         self.and_name = None
 
+        # register the validation callback
+        self.digit_func = self.master.register(self.vi.validate_number)
+        self.alpha_func = self.master.register(self.vi.validate_alpha)
+        self.ip_func = self.master.register(self.vi.validate_ip)
+        self.file_func = self.master.register(self.vi.validate_file)
 
         # 底层frame
         self.frm0 = ttk.Frame(self.master, padding=5)
@@ -143,10 +159,8 @@ class ShotPage:
         # 控制按钮
         self.create_btn_frame()
 
+    # 继电器参数
     def create_control_frame(self):
-        num_var = ttk.StringVar(value='6')
-
-        # 继电器参数
         relay_frm = ttk.LabelFrame(self.parameter_frm, text='继电器参数', padding=5, bootstyle='primary')
         relay_frm.pack(fill=X, expand=YES, pady=5, padx=5)
 
@@ -154,7 +168,8 @@ class ShotPage:
         path_frm.pack(fill=X, expand=YES, pady=5)
         path_lbl = ttk.Label(path_frm, text='继电器路径', width=10)
         path_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_folder_path = ttk.Entry(path_frm, textvariable='control_folder_path')
+        self.control_folder_path = ttk.Entry(path_frm, textvariable='control_folder_path',
+                                             validate="focus", validatecommand=(self.file_func, '%P'))
         self.control_folder_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
         btn = ttk.Button(path_frm, text='Browse', command=self.get_control_folder_path, width=8)
         btn.pack(side=LEFT, padx=5)
@@ -163,34 +178,36 @@ class ShotPage:
         num_frm.pack(fill=X, expand=YES, pady=5)
         num_lbl = ttk.Label(num_frm, text='控制序号', width=10)
         num_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_num = ttk.Entry(num_frm, textvariable=num_var)
+        self.control_num = ttk.Entry(num_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
         self.control_num.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         time_frm = ttk.Frame(relay_frm)
         time_frm.pack(fill=X, expand=YES, pady=5)
         time_lbl = ttk.Label(time_frm, text='间隔时间(s)', width=10)
         time_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_duration = ttk.Entry(time_frm)
+        self.control_duration = ttk.Entry(time_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
         self.control_duration.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         times_frm = ttk.Frame(relay_frm)
         times_frm.pack(fill=X, expand=YES, pady=5)
         times_lbl = ttk.Label(times_frm, text='操作次数', width=10)
         times_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_times = ttk.Entry(times_frm)
+        self.control_times = ttk.Entry(times_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
         self.control_times.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
+    # 功能按钮
     def create_btn_frame(self):
         btn_frm = ttk.Frame(self.frm0, padding=10)
         btn_frm.pack(fill=X, anchor='s', expand=YES)
-        buttons = [ttk.Button(master=btn_frm, text="开始执行", width=10, bootstyle='INFO-outline', command=self.start),
-                   ttk.Button(master=btn_frm, text="重置参数", width=10, bootstyle='SUCCESS-outline', command=self.reset),
-                   ttk.Button(master=btn_frm, text="返回首页", width=10, bootstyle='DANGER-outline', command=self.back)]
+        buttons = [ttk.Button(master=btn_frm, text="开始执行", width=10, bootstyle='SUCCESS-outline', command=self.start),
+                   ttk.Button(master=btn_frm, text="重置参数", width=10, bootstyle='DANGER-outline',
+                              command=self.reset),
+                   ttk.Button(master=btn_frm, text="返回首页", width=10, bootstyle='INFO-outline', command=self.back)]
         for button in buttons:
             button.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
 
+    # win app参数
     def shot_win(self):
-        # win app参数
         win_frm = ttk.LabelFrame(self.parameter_frm, text='Windows App参数', padding=5, bootstyle='success')
         win_frm.pack(fill=X, expand=YES, pady=5, padx=5)
 
@@ -198,7 +215,8 @@ class ShotPage:
         path_frm.pack(fill=X, expand=YES, pady=5)
         path_lbl = ttk.Label(path_frm, text='App路径', width=10)
         path_lbl.pack(side=LEFT, padx=(10, 0))
-        self.win_folder_path = ttk.Entry(path_frm, textvariable='win_folder_path')
+        self.win_folder_path = ttk.Entry(path_frm, textvariable='win_folder_path',
+                                         validate="focus", validatecommand=(self.file_func, '%P'))
         self.win_folder_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
         btn = ttk.Button(path_frm, text='Browse', command=self.get_win_folder_path, width=8)
         btn.pack(side=LEFT, padx=5)
@@ -222,7 +240,7 @@ class ShotPage:
         self.tree_view = ttk.Treeview(canvas, show='headings', height=8)
         self.tree_view.configure(columns=tuple(self.win_columns))
         for col in self.win_columns:
-            self.tree_view.column(col, stretch=False)
+            self.tree_view.column(col, stretch=False, width=150)
         for col in self.tree_view['columns']:
             self.tree_view.heading(col, text=col.title(), anchor=W)
         self.tree_view.pack(side=LEFT, fill=X, expand=YES, padx=5)
@@ -239,8 +257,8 @@ class ShotPage:
         btn_del = ttk.Button(btn_frm, text='Del', width=8, bootstyle='DANGER', command=self.del_steps)
         btn_del.pack(expand=YES, padx=5)
 
+    # Android app参数
     def shot_android(self):
-        # win app参数
         and_frm = ttk.LabelFrame(self.parameter_frm, text='Android App参数', padding=5, bootstyle='warning')
         and_frm.pack(fill=X, expand=YES, pady=5, padx=5)
 
@@ -248,11 +266,11 @@ class ShotPage:
         info_frm.pack(fill=X, expand=YES, pady=5)
         ip_lbl = ttk.Label(info_frm, text='设备ip', width=10)
         ip_lbl.pack(side=LEFT, padx=(10, 0))
-        ip_entry = ttk.Entry(info_frm)
+        ip_entry = ttk.Entry(info_frm, validate="focus", validatecommand=(self.ip_func, '%P'))
         ip_entry.pack(side=LEFT, fill=X, expand=YES, padx=5)
         port_lbl = ttk.Label(info_frm, text='port', width=10)
         port_lbl.pack(side=LEFT, padx=(10, 0))
-        port_entry = ttk.Entry(info_frm)
+        port_entry = ttk.Entry(info_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
         port_entry.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         name_frm = ttk.Frame(and_frm)
@@ -291,6 +309,7 @@ class ShotPage:
         btn_del = ttk.Button(btn_frm, text='Del', width=8, bootstyle='DANGER', command=self.del_steps)
         btn_del.pack(expand=YES, padx=5)
 
+    # 增加自定义出图步骤
     def add_steps(self):
         cur_columns = None
         if self.shot_type == 'windows':
@@ -300,13 +319,13 @@ class ShotPage:
         # 直接在已有数据后填充
         self.pop_win_command(cur_columns)
 
+    # 自定义出图步骤输入弹窗
     def pop_win_command(self, columns):
         pop_win = ttk.Toplevel()
-        pop_win.title('请输入步骤参数')
-        pop_win.geometry("300x200+200+200")  # 定义弹窗大小及位置，前两个是大小，用字母“x”连接，后面是位置。
+        pop_win.title('出图步骤参数')
+        pop_win.geometry("360x280+200+200")  # 定义弹窗大小及位置，前两个是大小，用字母“x”连接，后面是位置。
         pop_win.resizable(width=False, height=False)
         data = []
-
         entry_lst = []
         for i in range(len(columns)):
             frm = ttk.Frame(pop_win)
@@ -339,33 +358,42 @@ class ShotPage:
         for button in buttons:
             button.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
 
+    # 删除自定义出图步骤
     def del_steps(self):
         cur_date = self.tree_view.get_children()
         if len(cur_date) >= 1:
             self.tree_view.delete(cur_date[0])
 
+    # 获取控制器控制软件app路径
     def get_control_folder_path(self):
         self.master.update_idletasks()
-        d = tkinter.filedialog.askopenfilename()
+        d = filedialog.askopenfilename()
         if d:
             self.master.setvar('control_folder_path', d)
+            self.control_folder_path.focus()
 
-    def get_win_folder_path(self,):
+    # 获取windows app路径
+    def get_win_folder_path(self, ):
         self.master.update_idletasks()
-        d = tkinter.filedialog.askopenfilename()
+        d = filedialog.askopenfilename()
         if d:
             self.master.setvar('win_folder_path', d)
+            self.win_folder_path.focus()
 
+    # 返回主页
     def back(self):
         self.frm0.destroy()
         BasePage(self.master)
 
+    # 开始执行
     def start(self):
+
         if self.shot_type == 'windows':
             pass
         elif self.shot_type == 'android':
             pass
 
+    # 重置参数
     def reset(self):
         pass
 
