@@ -3,10 +3,12 @@
 # author:ZeWen.Fang
 # datetime:2022/11/2 17:18
 
+import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
+from ttkbootstrap.dialogs import Messagebox
 
 from GUIFunction import ValidateInput, AutoControl
 
@@ -16,6 +18,7 @@ base_win_height = 600
 
 class BaseWin:
     """主窗口定义"""
+
     def __init__(self, master):
         self.root = master
         self.root.title('热拔插测试小工具')
@@ -26,26 +29,27 @@ class BaseWin:
 
 class BasePage:
     """主页面定义"""
+
     # 初始化页面，定义使用说明、使用前确认、功能按钮
     def __init__(self, master):
         self.msg = '====================================================================\n' \
                    '欢迎使用Auto Control BMW8015！！！\n' \
-                   '当前版本号：v1.0.1\n' \
+                   '当前版本号：v2.0.0\n' \
                    '正式开始使用前请注意：\n' \
                    '    1. 请确保继电器已成功连接至电脑并正确安装驱动！！！\n' \
-                   '    2. 请确保继电器控制软件8路.exe与当前exe文件在同一路径下！！！\n' \
-                   '    3. 默认第一次断开继电器！！！\n' \
-                   '    4. 使用方式：\n' \
-                   '        a. 满足上述条件后双击运行\n' \
-                   '        b. 输入需要控制的继电器序号后回车\n' \
-                   '        c. 输入闭合断开继电器时间间隔后回车\n' \
-                   '        d. 输入需要重复闭合断开次数后回车（闭合断开为1次）\n' \
-                   '        e. 选择需要截图设备类型\n' \
-                   '        f. 输入需要被截图app信息\n' \
+                   '    2. 默认会先断开断开继电器！！！\n' \
+                   '    3. 当前仅支持在Windows平台上使用！！！\n' \
+                   '    4. 若需要截图安卓设备，请自行将设备通过无线连接方式连接至电脑！！！\n' \
+                   '    5. 使用方式：\n' \
+                   '        a. 双击运行\n' \
+                   '        b. 确认阅读后勾选\n' \
+                   '        c. 选择类型：仅控制继电器且不需要截图、控制继电器并截图Windows App、控制继电器并截图Android App\n' \
+                   '        d. 输入继电器控制相关参数\n' \
+                   '        e. 若需要截图，输入app相关参数\n' \
+                   '        f. 开始运行\n' \
                    '        g. 等待运行\n' \
-                   '    5. 每次输入仅有3次机会！！！\n' \
-                   '    6. app信息（Windows app窗口名称、Android app包名）无法校验，请自行检查！！！\n' \
-                   '    7. 详细使用说明请查看附带README.md文档！！！\n' \
+                   '    6. 文件路径、继电器控制参数会做费控、字符串、数字校验\n' \
+                   '    7. app信息（Windows app窗口名称、Android app包名）无法校验，请自行检查！！！\n' \
                    '若需要源码或有任何问题，请联系我zewen.fang@infisense.cn'
         self.status = ttk.IntVar()
         self.master = master
@@ -169,7 +173,7 @@ class ShotPage:
         path_lbl = ttk.Label(path_frm, text='继电器路径', width=10)
         path_lbl.pack(side=LEFT, padx=(10, 0))
         self.control_folder_path = ttk.Entry(path_frm, textvariable='control_folder_path',
-                                             validate="focus", validatecommand=(self.file_func, '%P'))
+                                             validate="focusout", validatecommand=(self.file_func, '%P'))
         self.control_folder_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
         btn = ttk.Button(path_frm, text='Browse', command=self.get_control_folder_path, width=8)
         btn.pack(side=LEFT, padx=5)
@@ -178,31 +182,32 @@ class ShotPage:
         num_frm.pack(fill=X, expand=YES, pady=5)
         num_lbl = ttk.Label(num_frm, text='控制序号', width=10)
         num_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_num = ttk.Entry(num_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
+        self.control_num = ttk.Entry(num_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
         self.control_num.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         time_frm = ttk.Frame(relay_frm)
         time_frm.pack(fill=X, expand=YES, pady=5)
         time_lbl = ttk.Label(time_frm, text='间隔时间(s)', width=10)
         time_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_duration = ttk.Entry(time_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
+        self.control_duration = ttk.Entry(time_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
         self.control_duration.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         times_frm = ttk.Frame(relay_frm)
         times_frm.pack(fill=X, expand=YES, pady=5)
         times_lbl = ttk.Label(times_frm, text='操作次数', width=10)
         times_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_times = ttk.Entry(times_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
+        self.control_times = ttk.Entry(times_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
         self.control_times.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
     # 功能按钮
     def create_btn_frame(self):
         btn_frm = ttk.Frame(self.frm0, padding=10)
         btn_frm.pack(fill=X, anchor='s', expand=YES)
-        buttons = [ttk.Button(master=btn_frm, text="开始执行", width=10, bootstyle='SUCCESS-outline', command=self.start),
-                   ttk.Button(master=btn_frm, text="重置参数", width=10, bootstyle='DANGER-outline',
-                              command=self.reset),
-                   ttk.Button(master=btn_frm, text="返回首页", width=10, bootstyle='INFO-outline', command=self.back)]
+        buttons = [
+            ttk.Button(master=btn_frm, text="开始执行", width=10, bootstyle='SUCCESS-outline', command=self.start),
+            ttk.Button(master=btn_frm, text="重置参数", width=10, bootstyle='DANGER-outline',
+                       command=self.reset),
+            ttk.Button(master=btn_frm, text="返回首页", width=10, bootstyle='INFO-outline', command=self.back)]
         for button in buttons:
             button.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
 
@@ -216,7 +221,7 @@ class ShotPage:
         path_lbl = ttk.Label(path_frm, text='App路径', width=10)
         path_lbl.pack(side=LEFT, padx=(10, 0))
         self.win_folder_path = ttk.Entry(path_frm, textvariable='win_folder_path',
-                                         validate="focus", validatecommand=(self.file_func, '%P'))
+                                         validate="focusout", validatecommand=(self.file_func, '%P'))
         self.win_folder_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
         btn = ttk.Button(path_frm, text='Browse', command=self.get_win_folder_path, width=8)
         btn.pack(side=LEFT, padx=5)
@@ -266,19 +271,19 @@ class ShotPage:
         info_frm.pack(fill=X, expand=YES, pady=5)
         ip_lbl = ttk.Label(info_frm, text='设备ip', width=10)
         ip_lbl.pack(side=LEFT, padx=(10, 0))
-        ip_entry = ttk.Entry(info_frm, validate="focus", validatecommand=(self.ip_func, '%P'))
-        ip_entry.pack(side=LEFT, fill=X, expand=YES, padx=5)
+        self.and_ip = ttk.Entry(info_frm, validate="focusout", validatecommand=(self.ip_func, '%P'))
+        self.and_ip.pack(side=LEFT, fill=X, expand=YES, padx=5)
         port_lbl = ttk.Label(info_frm, text='port', width=10)
         port_lbl.pack(side=LEFT, padx=(10, 0))
-        port_entry = ttk.Entry(info_frm, validate="focus", validatecommand=(self.digit_func, '%P'))
-        port_entry.pack(side=LEFT, fill=X, expand=YES, padx=5)
+        self.and_port = ttk.Entry(info_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
+        self.and_port.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         name_frm = ttk.Frame(and_frm)
         name_frm.pack(fill=X, expand=YES, pady=5)
         name_lbl = ttk.Label(name_frm, text='测试包名', width=10)
         name_lbl.pack(side=LEFT, padx=(10, 0))
-        name_entry = ttk.Entry(name_frm)
-        name_entry.pack(side=LEFT, fill=X, expand=YES, padx=5)
+        self.and_name = ttk.Entry(name_frm)
+        self.and_name.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         # Treeview
         step_frm = ttk.Frame(and_frm)
@@ -292,7 +297,7 @@ class ShotPage:
         self.tree_view = ttk.Treeview(canvas, show='headings', height=8)
         self.tree_view.configure(columns=tuple(self.and_columns))
         for col in self.and_columns:
-            self.tree_view.column(col, stretch=False)
+            self.tree_view.column(col, stretch=False, width=150)
         for col in self.tree_view['columns']:
             self.tree_view.heading(col, text=col.title(), anchor=W)
         self.tree_view.pack(side=LEFT, fill=X, expand=YES, padx=5)
@@ -317,10 +322,10 @@ class ShotPage:
         elif self.shot_type == 'android':
             cur_columns = self.and_columns
         # 直接在已有数据后填充
-        self.pop_win_command(cur_columns)
+        self.pop_win_input(cur_columns)
 
     # 自定义出图步骤输入弹窗
-    def pop_win_command(self, columns):
+    def pop_win_input(self, columns):
         pop_win = ttk.Toplevel()
         pop_win.title('出图步骤参数')
         pop_win.geometry("360x280+200+200")  # 定义弹窗大小及位置，前两个是大小，用字母“x”连接，后面是位置。
@@ -373,7 +378,7 @@ class ShotPage:
             self.control_folder_path.focus()
 
     # 获取windows app路径
-    def get_win_folder_path(self, ):
+    def get_win_folder_path(self):
         self.master.update_idletasks()
         d = filedialog.askopenfilename()
         if d:
@@ -387,18 +392,49 @@ class ShotPage:
 
     # 开始执行
     def start(self):
-
+        validate_flag = self.control_folder_path.validate() and self.control_num.validate() \
+                        and self.control_duration.validate() and self.control_times.validate()
         if self.shot_type == 'windows':
-            pass
+            validate_flag = validate_flag and self.win_folder_path.validate() and self.win_main_name.validate()
         elif self.shot_type == 'android':
-            pass
+            validate_flag = validate_flag and self.and_ip.validate() and self.and_port.validate() \
+                            and self.and_name.validate()
+        if validate_flag:
+            app_data = {}
+            if self.shot_type != 'nothing':
+                steps = self.tree_view.get_children()
+                app_data['steps'] = []
+                if len(steps) > 0:
+                    for line in self.tree_view.get_children():
+                        line_data = self.tree_view.item(line)['values']
+                        app_data['steps'].insert(0, line_data)
+                if self.shot_type == 'windows':
+                    app_data['win_folder_path'] = self.win_folder_path.get()
+                    app_data['win_main_name'] = self.win_main_name.get()
+                elif self.shot_type == 'android':
+                    app_data['and_ip'] = self.and_ip.get()
+                    app_data['and_port'] = self.and_port.get()
+                    app_data['and_name'] = self.and_name.get()
+
+            ac = AutoControl(self.control_folder_path.get(), self.control_num.get(), self.control_duration.get(),
+                             self.control_times.get(), self.shot_type, **app_data)
+            ac.main_func()
+        else:
+            Messagebox.show_error(title='Error Msg', message='输入有误或未输入，请检查您的输入！！！')
 
     # 重置参数
     def reset(self):
-        pass
-
-
-if __name__ == '__main__':
-    root = ttk.Window(themename='superhero')
-    BaseWin(root)
-    root.mainloop()
+        self.control_folder_path.delete(0, tk.END)
+        self.control_num.delete(0, tk.END)
+        self.control_duration.delete(0, tk.END)
+        self.control_times.delete(0, tk.END)
+        if self.shot_type != 'nothing':
+            for i in self.tree_view.get_children():
+                self.tree_view.delete(i)
+            if self.shot_type == 'windows':
+                self.win_folder_path.delete(0, tk.END)
+                self.win_main_name.delete(0, tk.END)
+            elif self.shot_type == 'android':
+                self.and_ip.delete(0, tk.END)
+                self.and_port.delete(0, tk.END)
+                self.and_name.delete(0, tk.END)

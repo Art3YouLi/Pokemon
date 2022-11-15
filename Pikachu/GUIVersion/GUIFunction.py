@@ -18,7 +18,6 @@ def subprocess_popen(statement):
     while p.poll() is None:  # 判断进程是否结束（Popen.poll()用于检查子进程（命令）是否已经执行结束，没结束返回None，结束后返回状态码）
         if p.wait() != 0:  # 判断是否执行成功（Popen.wait()等待子进程结束，并返回状态码；如果设置并且在timeout指定的秒数之后进程还没有结束，将会抛出一个TimeoutExpired异常。）
             print("命令执行失败，请检查")
-            print()
             return False
         else:
             pre = p.stdout.readlines()  # 获取原始执行结果
@@ -31,33 +30,41 @@ def subprocess_popen(statement):
 
 
 class ValidateInput:
-    def validate_number(self, x) -> bool:
+    @staticmethod
+    def validate_number(x) -> bool:
         """Validates that the input is a number"""
         if x.isdigit():
             return True
         elif x == "":
-            return True
+            return False
         else:
             return False
 
-    def validate_alpha(self, x) -> bool:
+    @staticmethod
+    def validate_alpha(x) -> bool:
         """Validates that the input is alpha"""
         if x.isdigit():
             return False
         elif x == "":
-            return True
+            return False
         else:
             return True
 
-    def validate_file(self, x) -> bool:
+    @staticmethod
+    def validate_file(x) -> bool:
         """Validates that the file is existing"""
+        if x == "":
+            return False
         if os.path.exists(x):
             return True
         else:
             return False
 
-    def validate_ip(self, x) -> bool:
+    @staticmethod
+    def validate_ip(x) -> bool:
         """Validates that the file is existing"""
+        if x == "":
+            return False
         if re.match(r'(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d{'
                     r'2}|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5]):(6[0-5]{2}[0-3][0-5]|[1-5]\d{4}|['
                     r'1-9]\d{1,3}|[0-9])', x):
@@ -75,7 +82,7 @@ class ControlApp:
         self.control_app = None
         self.control_app_window = None
         global pic_file
-        pic_file = os.path.join(self.control_app_path, 'ScreenShots')
+        pic_file = os.path.join(os.path.dirname(self.control_app_path), 'ScreenShots')
         # 判断文件是否在同一文件夹
         if not os.path.exists(pic_file):
             os.mkdir(pic_file)
@@ -125,11 +132,17 @@ class ScreenShotWinApp:
     def app_stop(self):
         self.win_app[self.win_app_name].close()
 
-    def screen_shot(self, operate_type, times, sleep_time):
-        pass
-        time.sleep(sleep_time)
+    def shot_steps(self):
+        if len(self.win_steps) > 0:
+            for step in self.win_steps:
+                if step[2] == '':
+                    step[2] = 0
+                self.win_app[step[0]][step[1]][step[2]].click()
+                time.sleep(step[3]) if step[3] != '' else time.sleep(2)
+
+    def screen_shot(self, operate_type, times):
         pic_name = f'{operate_type}第{times}次.png'
-        pic_path = os.path.join(self.pic_file, pic_name)
+        pic_path = os.path.join(self.win_app_pics, pic_name)
         self.win_app[self.win_app_name].set_focus().capture_as_image().save(pic_path)
 
 
@@ -156,30 +169,35 @@ class ScreenShotAndroidApp:
     def app_stop(self):
         self.device.app_stop(self.android_app_name)
 
-    def screen_shot(self, operate_type, times, sleep_time=2):
-        if self.android_app_btn is not None and '闭合' in operate_type:
-            self.device(text=self.android_app_btn).click()
-            time.sleep(1)
-        time.sleep(sleep_time)
+    def shot_steps(self):
+        if len(self.android_steps) > 0:
+            for step in self.android_steps:
+                if step[2] == '':
+                    step[2] = 0
+                self.device({step[0]: step[1]})[step[2]].click()
+                time.sleep(step[3]) if step[3] != '' else time.sleep(2)
+
+    def screen_shot(self, operate_type, times):
         pic_name = f'{operate_type}第{times}次.png'
-        pic_path = os.path.join(self.pic_file, pic_name)
+        pic_path = os.path.join(self.and_app_pics, pic_name)
         self.device.screenshot(pic_path)
 
 
 class AutoControl:
-    def __init__(self, control_app_path, control_num, control_duration, control_times, **kwargs):
+    def __init__(self, control_app_path, control_num, control_duration, control_times, shot_type, **kwargs):
         self.ca = ControlApp(control_app_path, control_num, control_duration, control_times)
+        self.shot_type = shot_type
         self.shot_app = None
-        if kwargs.get('shot_type') == 'windows':
+        if self.shot_type == 'windows':
             win_app_path = kwargs.get('win_app_path')
             win_app_name = kwargs.get('win_app_name')
-            win_steps = kwargs.get('win_steps')
+            win_steps = kwargs.get('steps')
             self.shot_app = ScreenShotWinApp(win_app_path, win_app_name, win_steps)
-        elif kwargs.get('shot_type') == 'android':
+        elif self.shot_type == 'android':
             android_ip = kwargs.get('android_ip')
             android_port = kwargs.get('android_port')
             android_app_name = kwargs.get('android_app_name')
-            android_steps = kwargs.get('android_steps')
+            android_steps = kwargs.get('steps')
             self.shot_app = ScreenShotAndroidApp(android_ip, android_port,  android_app_name, android_steps)
 
     def main_func(self):
@@ -191,22 +209,30 @@ class AutoControl:
         time.sleep(3)
         self.ca.open_relay()
         # 第三步：判断是否配合其他app使用
-        if self.shot_app is not None:
+        if self.shot_type != 'nothing':
             self.shot_app.app_start()
             time.sleep(3)
             self.shot_app.create_cur_pic()
         # 第四步：开始循环
         for i in range(self.ca.control_times):
-            # 闭合继电器
+            # 闭合继电器并等待
             print(f'第{str(i + 1)}次闭合继电器{self.ca.control_num}..........')
             self.ca.close_relay()
-
             # 出图并截图
-            if self.shot_app is not None:
-                pass
+            if self.shot_type != 'nothing':
+                self.shot_app.shot_steps()
+                self.shot_app.screen_shot(f'第{i+1}次闭合继电器并截图', i+1)
+            print(f'第{str(i + 1)}次闭合继电器等待..........')
+            time.sleep(self.ca.control_duration)
 
+            # 断开继电器
+            print(f'第{str(i + 1)}次断开继电器{self.ca.control_num}..........')
+            self.ca.open_relay()
+            # 断开继电器并截图
+            if self.shot_type != 'nothing':
+                self.shot_app.screen_shot(f'第{i + 1}次断开继电器并截图', i+1)
 
-
-
-
-
+        # 第五步：收尾
+        print(f'正在断开串口并关闭控制程序..........')
+        self.ca.close_com()
+        self.ca.exit_controlApp()
