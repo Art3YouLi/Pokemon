@@ -134,8 +134,8 @@ class ShotPage:
 
         self.tree_view = None
 
-        self.win_folder_path = None
-        self.win_main_name = None
+        self.win_app_path = None
+        self.win_app_name = None
 
         self.and_ip = None
         self.and_port = None
@@ -220,18 +220,18 @@ class ShotPage:
         path_frm.pack(fill=X, expand=YES, pady=5)
         path_lbl = ttk.Label(path_frm, text='App路径', width=10)
         path_lbl.pack(side=LEFT, padx=(10, 0))
-        self.win_folder_path = ttk.Entry(path_frm, textvariable='win_folder_path',
-                                         validate="focusout", validatecommand=(self.file_func, '%P'))
-        self.win_folder_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
-        btn = ttk.Button(path_frm, text='Browse', command=self.get_win_folder_path, width=8)
+        self.win_app_path = ttk.Entry(path_frm, textvariable='win_app_path',
+                                      validate="focusout", validatecommand=(self.file_func, '%P'))
+        self.win_app_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
+        btn = ttk.Button(path_frm, text='Browse', command=self.get_win_app_path, width=8)
         btn.pack(side=LEFT, padx=5)
 
         name_frm = ttk.Frame(win_frm)
         name_frm.pack(fill=X, expand=YES, pady=5)
         name_lbl = ttk.Label(name_frm, text='主窗口名称', width=10)
         name_lbl.pack(side=LEFT, padx=(10, 0))
-        self.win_main_name = ttk.Entry(name_frm)
-        self.win_main_name.pack(side=LEFT, fill=X, expand=YES, padx=5)
+        self.win_app_name = ttk.Entry(name_frm)
+        self.win_app_name.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         # Treeview
         step_frm = ttk.Frame(win_frm)
@@ -378,12 +378,12 @@ class ShotPage:
             self.control_folder_path.focus()
 
     # 获取windows app路径
-    def get_win_folder_path(self):
+    def get_win_app_path(self):
         self.master.update_idletasks()
         d = filedialog.askopenfilename()
         if d:
-            self.master.setvar('win_folder_path', d)
-            self.win_folder_path.focus()
+            self.master.setvar('win_app_path', d)
+            self.win_app_path.focus()
 
     # 返回主页
     def back(self):
@@ -395,7 +395,7 @@ class ShotPage:
         validate_flag = self.control_folder_path.validate() and self.control_num.validate() \
                         and self.control_duration.validate() and self.control_times.validate()
         if self.shot_type == 'windows':
-            validate_flag = validate_flag and self.win_folder_path.validate() and self.win_main_name.validate()
+            validate_flag = validate_flag and self.win_app_path.validate() and self.win_app_name.validate()
         elif self.shot_type == 'android':
             validate_flag = validate_flag and self.and_ip.validate() and self.and_port.validate() \
                             and self.and_name.validate()
@@ -409,8 +409,8 @@ class ShotPage:
                         line_data = self.tree_view.item(line)['values']
                         app_data['steps'].insert(0, line_data)
                 if self.shot_type == 'windows':
-                    app_data['win_folder_path'] = self.win_folder_path.get()
-                    app_data['win_main_name'] = self.win_main_name.get()
+                    app_data['win_app_path'] = self.win_app_path.get()
+                    app_data['win_app_name'] = self.win_app_name.get()
                 elif self.shot_type == 'android':
                     app_data['and_ip'] = self.and_ip.get()
                     app_data['and_port'] = self.and_port.get()
@@ -432,8 +432,8 @@ class ShotPage:
             for i in self.tree_view.get_children():
                 self.tree_view.delete(i)
             if self.shot_type == 'windows':
-                self.win_folder_path.delete(0, tk.END)
-                self.win_main_name.delete(0, tk.END)
+                self.win_app_path.delete(0, tk.END)
+                self.win_app_name.delete(0, tk.END)
             elif self.shot_type == 'android':
                 self.and_ip.delete(0, tk.END)
                 self.and_port.delete(0, tk.END)

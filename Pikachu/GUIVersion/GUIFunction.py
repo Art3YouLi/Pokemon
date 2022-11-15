@@ -188,6 +188,7 @@ class AutoControl:
         self.ca = ControlApp(control_app_path, control_num, control_duration, control_times)
         self.shot_type = shot_type
         self.shot_app = None
+        print(kwargs)
         if self.shot_type == 'windows':
             win_app_path = kwargs.get('win_app_path')
             win_app_name = kwargs.get('win_app_name')
@@ -196,7 +197,7 @@ class AutoControl:
         elif self.shot_type == 'android':
             android_ip = kwargs.get('android_ip')
             android_port = kwargs.get('android_port')
-            android_app_name = kwargs.get('android_app_name')
+            android_app_name = kwargs.get('and_name')
             android_steps = kwargs.get('steps')
             self.shot_app = ScreenShotAndroidApp(android_ip, android_port,  android_app_name, android_steps)
 
@@ -231,6 +232,8 @@ class AutoControl:
             # 断开继电器并截图
             if self.shot_type != 'nothing':
                 self.shot_app.screen_shot(f'第{i + 1}次断开继电器并截图', i+1)
+            print(f'第{str(i + 1)}次断开继电器等待..........')
+            time.sleep(self.ca.control_duration)
 
         # 第五步：收尾
         print(f'正在断开串口并关闭控制程序..........')
