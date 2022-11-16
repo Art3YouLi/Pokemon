@@ -231,6 +231,7 @@ class AutoControl:
                 self.shot_app.shot_steps()
                 self.shot_app.screen_shot(f'第{i+1}次闭合继电器并截图', i+1)
             print(f'第{str(i + 1)}次闭合继电器等待..........')
+            time.sleep(2)
 
             # 断开继电器
             print(f'第{str(i + 1)}次断开继电器{self.ca.control_num}..........')
