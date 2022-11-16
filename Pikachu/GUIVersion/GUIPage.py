@@ -21,7 +21,7 @@ class BaseWin:
 
     def __init__(self, master):
         self.root = master
-        self.root.title('热拔插测试小工具')
+        self.root.title('Hot Swap TestTool')
         self.root.geometry(str(base_win_weight) + 'x' + str(base_win_height))
         self.root.resizable(width=False, height=False)
         BasePage(self.root)
@@ -32,7 +32,7 @@ class BasePage:
 
     # 初始化页面，定义使用说明、使用前确认、功能按钮
     def __init__(self, master):
-        self.msg = '欢迎使用Auto Control BMW8015！！！\n' \
+        self.msg = '欢迎使用Hot Swap TestTool！！！\n' \
                    '当前版本号：v2.0.0\n' \
                    '正式开始使用前请注意：\n' \
                    '    1. 请确保继电器已成功连接至电脑并正确安装驱动！！！\n' \
