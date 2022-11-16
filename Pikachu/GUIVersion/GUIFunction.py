@@ -212,8 +212,9 @@ class AutoControl:
         time.sleep(3)
         # 第二步：打开串口，并断开继电器
         self.ca.open_com()
-        time.sleep(3)
+        time.sleep(2)
         self.ca.open_relay()
+        time.sleep(2)
         # 第三步：判断是否配合其他app使用
         if self.shot_type != 'nothing':
             self.shot_app.app_start()
@@ -224,21 +225,21 @@ class AutoControl:
             # 闭合继电器并等待
             print(f'第{str(i + 1)}次闭合继电器{self.ca.control_num}..........')
             self.ca.close_relay()
+            time.sleep(self.ca.control_duration)
             # 出图并截图
             if self.shot_type != 'nothing':
                 self.shot_app.shot_steps()
                 self.shot_app.screen_shot(f'第{i+1}次闭合继电器并截图', i+1)
             print(f'第{str(i + 1)}次闭合继电器等待..........')
-            time.sleep(self.ca.control_duration)
 
             # 断开继电器
             print(f'第{str(i + 1)}次断开继电器{self.ca.control_num}..........')
             self.ca.open_relay()
+            time.sleep(self.ca.control_duration)
             # 断开继电器并截图
             if self.shot_type != 'nothing':
                 self.shot_app.screen_shot(f'第{i + 1}次断开继电器并截图', i+1)
             print(f'第{str(i + 1)}次断开继电器等待..........')
-            time.sleep(self.ca.control_duration)
 
         # 第五步：关闭控制程序
         print(f'正在断开串口并关闭控制程序..........')
