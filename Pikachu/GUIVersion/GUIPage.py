@@ -32,25 +32,28 @@ class BasePage:
 
     # 初始化页面，定义使用说明、使用前确认、功能按钮
     def __init__(self, master):
-        self.msg = '====================================================================\n' \
-                   '欢迎使用Auto Control BMW8015！！！\n' \
+        self.msg = '欢迎使用Auto Control BMW8015！！！\n' \
                    '当前版本号：v2.0.0\n' \
                    '正式开始使用前请注意：\n' \
                    '    1. 请确保继电器已成功连接至电脑并正确安装驱动！！！\n' \
-                   '    2. 默认会先断开断开继电器！！！\n' \
+                   '    2. 默认会先断开继电器！！！\n' \
                    '    3. 当前仅支持在Windows平台上使用！！！\n' \
                    '    4. 若需要截图安卓设备，请自行将设备通过无线连接方式连接至电脑！！！\n' \
                    '    5. 使用方式：\n' \
                    '        a. 双击运行\n' \
                    '        b. 确认阅读后勾选\n' \
-                   '        c. 选择类型：仅控制继电器且不需要截图、控制继电器并截图Windows App、控制继电器并截图Android App\n' \
+                   '        c. 选择类型：\n' \
+                   '            仅控制继电器且不需要截图\n' \
+                   '            控制继电器并截图Windows App\n' \
+                   '            控制继电器并截图Android App\n' \
                    '        d. 输入继电器控制相关参数\n' \
                    '        e. 若需要截图，输入app相关参数\n' \
                    '        f. 开始运行\n' \
                    '        g. 等待运行\n' \
                    '    6. 文件路径、继电器控制参数会做费控、字符串、数字校验\n' \
                    '    7. app信息（Windows app窗口名称、Android app包名）无法校验，请自行检查！！！\n' \
-                   '若需要源码或有任何问题，请联系我zewen.fang@infisense.cn'
+                   '\n'\
+                   '若需要源码或有任何问题，请联系我zewen.fang@infisense.cn\n'
         self.status = ttk.IntVar()
         self.master = master
 
@@ -61,7 +64,7 @@ class BasePage:
         # 基准界面frame1 - 使用说明
         info_frm = ttk.Labelframe(self.frm0, text='Info', bootstyle='INFO')
         info_frm.pack(fill=BOTH, expand=YES, pady=10)
-        textbox = ScrolledText(info_frm, padding=5, height=20, autohide=True, font='Verdana 10 bold')
+        textbox = ScrolledText(info_frm, padding=5, height=28, autohide=True, font='default 11 bold')
         textbox.pack(fill=BOTH, expand=YES)
         textbox.insert(END, self.msg)
 
@@ -123,8 +126,8 @@ class ShotPage:
         self.shot_type = shot_type
         self.vi = ValidateInput()
 
-        self.win_columns = ['窗口名称', '按钮名称', '索引', '等待时间(s)']
-        self.and_columns = ['属性', '值', '索引', '等待时间(s)']
+        self.win_columns = ['窗口名称', '按钮名称', '等待时间(s)']
+        self.and_columns = ['属性', '值', '等待时间(s)']
 
         # 输入参数变量
         self.control_folder_path = None
@@ -245,7 +248,7 @@ class ShotPage:
         self.tree_view = ttk.Treeview(canvas, show='headings', height=8)
         self.tree_view.configure(columns=tuple(self.win_columns))
         for col in self.win_columns:
-            self.tree_view.column(col, stretch=False, width=150)
+            self.tree_view.column(col, stretch=False, width=180)
         for col in self.tree_view['columns']:
             self.tree_view.heading(col, text=col.title(), anchor=W)
         self.tree_view.pack(side=LEFT, fill=X, expand=YES, padx=5)
@@ -297,7 +300,7 @@ class ShotPage:
         self.tree_view = ttk.Treeview(canvas, show='headings', height=8)
         self.tree_view.configure(columns=tuple(self.and_columns))
         for col in self.and_columns:
-            self.tree_view.column(col, stretch=False, width=150)
+            self.tree_view.column(col, stretch=False, width=180)
         for col in self.tree_view['columns']:
             self.tree_view.heading(col, text=col.title(), anchor=W)
         self.tree_view.pack(side=LEFT, fill=X, expand=YES, padx=5)

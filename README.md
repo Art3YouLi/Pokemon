@@ -1,4 +1,4 @@
-# Pokemom
+# Pokemon
 
 ## 前言
 Welcome to my Pokemon project.

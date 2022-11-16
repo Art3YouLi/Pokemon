@@ -11,6 +11,7 @@ from pywinauto import Application
 
 
 pic_file = ''
+app_pics = ''
 
 
 def subprocess_popen(statement):
@@ -34,7 +35,10 @@ class ValidateInput:
     def validate_number(x) -> bool:
         """Validates that the input is a number"""
         if x.isdigit():
-            return True
+            if int(x) > 0:
+                return True
+            else:
+                return False
         elif x == "":
             return False
         else:
@@ -63,11 +67,10 @@ class ValidateInput:
     @staticmethod
     def validate_ip(x) -> bool:
         """Validates that the file is existing"""
+        pattern = re.compile(r'(([1-9]?\d|1\d\d|2[0-4]\d|25[0-5])\.){3}([1-9]?\d|1\d\d|2[0-4]\d|25[0-5])')
         if x == "":
             return False
-        if re.match(r'(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d{'
-                    r'2}|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d{2}|2[0-4]\d|25[0-5]):(6[0-5]{2}[0-3][0-5]|[1-5]\d{4}|['
-                    r'1-9]\d{1,3}|[0-9])', x):
+        if pattern.fullmatch(x):
             return True
         else:
             return False
@@ -121,6 +124,8 @@ class ScreenShotWinApp:
         self.win_steps = win_steps
         self.win_app = None
         self.win_app_pics = os.path.join(pic_file, time.strftime("%Y%m%d%H%M%S", time.localtime()))
+        global app_pics
+        app_pics = self.win_app_pics
 
     def create_cur_pic(self):
         if not os.path.exists(self.win_app_pics):
@@ -135,10 +140,8 @@ class ScreenShotWinApp:
     def shot_steps(self):
         if len(self.win_steps) > 0:
             for step in self.win_steps:
-                if step[2] == '':
-                    step[2] = 0
-                self.win_app[step[0]][step[1]][step[2]].click()
-                time.sleep(step[3]) if step[3] != '' else time.sleep(2)
+                self.win_app[step[0]][step[1]].click()
+                time.sleep(step[2]) if step[2] != '' else time.sleep(2)
 
     def screen_shot(self, operate_type, times):
         pic_name = f'{operate_type}第{times}次.png'
@@ -148,12 +151,14 @@ class ScreenShotWinApp:
 
 class ScreenShotAndroidApp:
     """Android app"""
-    def __init__(self, android_ip, android_port,  android_app_name, android_steps):
-        self.android_connect_info = android_ip+':'+android_port
-        self.android_app_name = android_app_name
+    def __init__(self, and_ip, and_port,  and_name, and_steps):
+        self.android_connect_info = and_ip+':'+and_port
+        self.and_name = and_name
         self.device = None
-        self.android_steps = android_steps
+        self.and_steps = and_steps
         self.and_app_pics = os.path.join(pic_file, time.strftime("%Y%m%d%H%M%S", time.localtime()))
+        global app_pics
+        app_pics = self.and_app_pics
 
     def create_cur_pic(self):
         if not os.path.exists(self.and_app_pics):
@@ -162,20 +167,20 @@ class ScreenShotAndroidApp:
     def app_start(self):
         self.device = u2.connect(self.android_connect_info)
         time.sleep(5)
-        self.device.app_stop(self.android_app_name)
+        self.device.app_stop(self.and_name)
         time.sleep(1)
-        self.device.app_start(self.android_app_name, wait=True)
+        self.device.app_start(self.and_name, wait=True)
 
     def app_stop(self):
-        self.device.app_stop(self.android_app_name)
+        self.device.app_stop(self.and_name)
 
     def shot_steps(self):
-        if len(self.android_steps) > 0:
-            for step in self.android_steps:
+        if len(self.and_steps) > 0:
+            for step in self.and_steps:
                 if step[2] == '':
                     step[2] = 0
-                self.device({step[0]: step[1]})[step[2]].click()
-                time.sleep(step[3]) if step[3] != '' else time.sleep(2)
+                self.device(**{step[0]: step[1]}).click()
+                time.sleep(step[2]) if step[2] != '' else time.sleep(2)
 
     def screen_shot(self, operate_type, times):
         pic_name = f'{operate_type}第{times}次.png'
@@ -195,11 +200,11 @@ class AutoControl:
             win_steps = kwargs.get('steps')
             self.shot_app = ScreenShotWinApp(win_app_path, win_app_name, win_steps)
         elif self.shot_type == 'android':
-            android_ip = kwargs.get('android_ip')
-            android_port = kwargs.get('android_port')
-            android_app_name = kwargs.get('and_name')
-            android_steps = kwargs.get('steps')
-            self.shot_app = ScreenShotAndroidApp(android_ip, android_port,  android_app_name, android_steps)
+            and_ip = kwargs.get('and_ip')
+            and_port = kwargs.get('and_port')
+            and_name = kwargs.get('and_name')
+            and_steps = kwargs.get('steps')
+            self.shot_app = ScreenShotAndroidApp(and_ip, and_port,  and_name, and_steps)
 
     def main_func(self):
         # 第一步：启动继电器控制软件
@@ -235,7 +240,11 @@ class AutoControl:
             print(f'第{str(i + 1)}次断开继电器等待..........')
             time.sleep(self.ca.control_duration)
 
-        # 第五步：收尾
+        # 第五步：关闭控制程序
         print(f'正在断开串口并关闭控制程序..........')
         self.ca.close_com()
         self.ca.exit_controlApp()
+
+        # 第六步：打开截图文件夹
+        if app_pics != '':
+            os.startfile(app_pics)
