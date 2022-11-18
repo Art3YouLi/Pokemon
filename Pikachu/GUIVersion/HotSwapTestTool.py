@@ -6,7 +6,6 @@ import ttkbootstrap as ttk
 
 from GUIPage import BaseWin
 
-
 if __name__ == '__main__':
     root = ttk.Window(themename='superhero')
     BaseWin(root)

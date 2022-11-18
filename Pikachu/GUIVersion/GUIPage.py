@@ -2,18 +2,42 @@
 # -*- coding:utf-8 -*-
 # author:ZeWen.Fang
 # datetime:2022/11/2 17:18
-
+import inspect
+import ctypes
+import logging
+import threading
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
 from ttkbootstrap.dialogs import Messagebox
-
 from GUIFunction import ValidateInput, AutoControl
 
 base_win_weight = 800
 base_win_height = 600
+
+log = None
+ac_thread = None
+
+
+def _async_raise(tid, exc_type):
+    """raises the exception, performs cleanup if needed"""
+    tid = ctypes.c_long(tid)
+    if not inspect.isclass(exc_type):
+        exc_type = type(exc_type)
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exc_type))
+    if res == 0:
+        raise ValueError("invalid thread id")
+    elif res != 1:
+        # """if it returns a number greater than one, you're in trouble,
+        # and you should call it again with exc=NULL to revert the effect"""
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
+        raise SystemError("PyThreadState_SetAsyncExc failed")
+
+
+def stop_thread(thread):
+    _async_raise(thread.ident, SystemExit)
 
 
 class BaseWin:
@@ -388,11 +412,30 @@ class ShotPage:
                     app_data['and_port'] = self.and_port.get()
                     app_data['and_name'] = self.and_name.get()
 
-            ac = AutoControl(self.control_folder_path.get(), self.control_num.get(), self.control_duration.get(),
-                             self.control_times.get(), self.shot_type, **app_data)
-            ac.main_func()
+            control_folder_path = self.control_folder_path.get()
+            control_num = self.control_num.get()
+            control_duration = self.control_duration.get()
+            control_times = self.control_times.get()
+
+            log_thread = threading.Thread(target=self.goto_log)
+            log_thread.start()
+            global log
+            global ac_thread
+            ac_thread = threading.Thread(target=self.run_ac, args=(control_folder_path, control_num, control_duration,
+                                                                   control_times, self.shot_type, log, app_data))
+            ac_thread.start()
         else:
             Messagebox.show_error(title='Error Msg', message='输入有误或未输入，请检查您的输入！！！')
+
+    @staticmethod
+    def run_ac(control_folder_path, control_num, control_duration, control_times, shot_type, app_data):
+        ac = AutoControl(control_folder_path, control_num, control_duration, control_times,
+                         shot_type, log, **app_data)
+        ac.main_func()
+
+    def goto_log(self):
+        self.frm0.destroy()
+        LogPage(self.master, self.shot_type)
 
     # 重置参数
     def reset(self):
@@ -412,5 +455,65 @@ class ShotPage:
                 self.and_name.delete(0, tk.END)
 
 
+class LoggerBox(ScrolledText):
+    def write(self, message):
+        self.insert("end", message)
+        self.see(END)
+        self.update()
+
+
 class LogPage:
-    pass
+    """log页面定义"""
+
+    def __init__(self, master, shot_type):
+        self.back_btn = None
+        self.stop_btn = None
+        self.master = master
+        self.shot_type = shot_type
+
+        # 底层frame
+        self.frm0 = ttk.Frame(self.master, padding=5)
+        self.frm0.pack(fill=X, expand=YES, anchor=N)
+
+        # 参数输入
+        self.parameter_frm = ttk.Frame(self.frm0)
+        self.parameter_frm.pack(fill=BOTH, pady=10)
+        # 继电器控制软件参数部分
+        self.log_frame()
+
+        # 控制按钮
+        self.btn_frame()
+
+    def log_frame(self):
+        stream_handler_box = LoggerBox(self.frm0, width=50, height=5)
+        stream_handler_box.pack(fill=BOTH)
+        global log
+        log = logging.getLogger('log')
+        log.setLevel(logging.INFO)
+        handler = logging.StreamHandler(stream_handler_box)
+        formatter = '[%(levelname)s %(asctime)s %(filename)s:%(lineno)d %(funcName)s] %(message)s'
+        handler.formatter = formatter
+        log.addHandler(handler)
+
+    def btn_frame(self):
+        btn_frm = ttk.Frame(self.frm0, padding=10)
+        btn_frm.pack(fill=X, anchor='s', expand=YES)
+        self.stop_btn = ttk.Button(master=btn_frm, text='停止运行', width=10, bootstyle='DANGER-outline',
+                                   command=self.stop_running)
+        self.stop_btn.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
+        self.back_btn = ttk.Button(master=btn_frm, text="返回设置", width=10, bootstyle='INFO-outline',
+                                   command=self.back_to_page)
+        self.back_btn.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
+
+    def back_to_page(self):
+        global ac_thread
+        if ac_thread.is_alive():
+            Messagebox.show_error(title='Error Msg', message='程序正在运行，请先停止程序！！！')
+        else:
+            self.frm0.destroy()
+            ShotPage(self.master, self.shot_type)
+
+    @staticmethod
+    def stop_running():
+        global ac_thread
+        stop_thread(ac_thread)
