@@ -13,11 +13,13 @@ if __name__ == '__main__':
         print("无串口设备")
     else:
         print("可用的串口设备如下: ")
-        print("%-10s %-30s %-10s" % ("num", "name", "number"))
+        print("%-5s %-10s %-65s" % ("num", "number", "name"))
         for i in range(len(ports_list)):
             comport = list(ports_list[i])
             comport_number, comport_name = comport[0], comport[1]
-            print("%-10s %-30s %-10s" % (i, comport_name, comport_number))
+            print("%-5s %-10s %-65s" % (i, comport_number, comport_name))
+            # if 'Prolific PL2303GT USB Serial COM Port' in comport_name:
+            #     print(comport_number)
 
         # 打开串口
         port_num = ports_list[1][0]
@@ -31,8 +33,8 @@ if __name__ == '__main__':
             print("打开串口失败")
 
         # 串口发送数据
-        data = bytearray
-        write_len = ser.write(b'FE 01 06 01 EF')
+        data = bytearray([0xFE, 0x01, 0x06, 0x00, 0xEF])
+        write_len = ser.write(data)
         print("串口发出{}个字节".format(write_len))
 
         # 等待串口返回信息并输出
