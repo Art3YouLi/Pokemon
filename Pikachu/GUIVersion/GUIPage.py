@@ -12,13 +12,12 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
 from ttkbootstrap.dialogs import Messagebox
-from GUIFunction import ValidateInput, AutoControl
+from GUIFunction import ValidateInput
+
+from GUIFunction import AutoControl
 
 base_win_weight = 800
-base_win_height = 600
-
-log = None
-ac_thread = None
+base_win_height = 550
 
 
 def _async_raise(tid, exc_type):
@@ -48,14 +47,16 @@ class BaseWin:
         self.root.title('HotSwap TestTool')
         self.root.geometry(str(base_win_weight) + 'x' + str(base_win_height))
         self.root.resizable(width=False, height=False)
-        BasePage(self.root)
+        HomePage(self.root)
 
 
-class BasePage:
+class HomePage:
     """主页面定义"""
 
     # 初始化页面，定义使用说明、使用前确认、功能按钮
     def __init__(self, master):
+        self.master = master
+        self.frm0 = None
         self.msg = '欢迎使用Hot Swap TestTool！！！\n' \
                    '当前版本号：v2.0.0\n' \
                    '正式开始使用前请注意：\n' \
@@ -78,9 +79,15 @@ class BasePage:
                    '    7. app信息（Windows app窗口名称、Android app包名）无法校验，请自行检查！！！\n' \
                    '\n' \
                    '若需要源码或有任何问题，请联系我zewen.fang@infisense.cn\n'
-        self.status = ttk.IntVar()
-        self.master = master
+        self.ck_btn = None
+        self.ck_btn_status = ttk.IntVar()
+        self.btn_only = None
+        self.btn_win = None
+        self.btn_and = None
 
+        self.page_frame()
+
+    def page_frame(self):
         # 底层frame
         self.frm0 = ttk.Frame(self.master, padding=5)
         self.frm0.pack(fill=X, expand=YES, anchor=N)
@@ -88,7 +95,7 @@ class BasePage:
         # 基准界面frame1 - 使用说明
         info_frm = ttk.Labelframe(self.frm0, text='Info', bootstyle='INFO')
         info_frm.pack(fill=BOTH, expand=YES, pady=10)
-        textbox = ScrolledText(info_frm, padding=5, height=28, autohide=True, font='default 11 bold')
+        textbox = ScrolledText(info_frm, padding=5, height=24, autohide=True, font='default 11 bold')
         textbox.pack(fill=BOTH, expand=YES)
         textbox.insert(END, self.msg)
 
@@ -96,27 +103,30 @@ class BasePage:
         ensure_frm = ttk.Frame(self.frm0)
         ensure_frm.pack(fill=X, expand=YES, pady=10)
         self.ck_btn = ttk.Checkbutton(ensure_frm, text="请确认您已阅读上述使用说明", bootstyle='INFO-round-toggle',
-                                      variable=self.status, command=self.switch_btn_status)
+                                      variable=self.ck_btn_status, command=self.switch_btn_status)
         self.ck_btn.pack(side=RIGHT, padx=(15, 0))
 
         # 基准界面frame3 - 选择按钮
         btn_frm = ttk.Frame(self.frm0)
         btn_frm.pack(fill=X, expand=YES, pady=10)
-        self.btn_only = ttk.Button(btn_frm, text='仅控制继电器', width=25, state='disabled',
-                                   bootstyle='primary-outline', command=self.goto_shot_nothing)
+        self.btn_only = ttk.Button(btn_frm, text='Only Control Relay', width=25, state='disabled',
+                                   bootstyle='primary-outline',
+                                   command=SwitchPage(self.master, 'nothing', self.frm0).switch_page)
         self.btn_only.pack(side=LEFT, fill=X, expand=YES, pady=10, padx=5)
 
-        self.btn_win = ttk.Button(btn_frm, text='with Windows Application', width=25, state='disabled',
-                                  bootstyle='success-outline', command=self.goto_shot_win)
+        self.btn_win = ttk.Button(btn_frm, text='With Windows Application', width=25, state='disabled',
+                                  bootstyle='success-outline',
+                                  command=SwitchPage(self.master, 'windows', self.frm0).switch_page)
         self.btn_win.pack(side=LEFT, fill=X, expand=YES, pady=10, padx=5)
 
-        self.btn_and = ttk.Button(btn_frm, text='with Android Application', width=25, state='disabled',
-                                  bootstyle='warning-outline', command=self.goto_shot_And)
+        self.btn_and = ttk.Button(btn_frm, text='With Android Application', width=25, state='disabled',
+                                  bootstyle='warning-outline',
+                                  command=SwitchPage(self.master, 'android', self.frm0).switch_page)
         self.btn_and.pack(side=LEFT, fill=X, expand=YES, pady=10, padx=5)
 
     # 根据确认复选框改变功能btn状态
     def switch_btn_status(self):
-        if self.status.get() == 1:  # 判断是否被选中
+        if self.ck_btn_status.get() == 1:  # 判断是否被选中
             self.btn_only.configure(state='active')
             self.btn_win.configure(state='active')
             self.btn_and.configure(state='active')
@@ -125,27 +135,11 @@ class BasePage:
             self.btn_win.configure(state='disabled')
             self.btn_and.configure(state='disabled')
 
-    # 配合Windows app使用
-    def goto_shot_win(self):
-        self.frm0.destroy()
-        ShotPage(self.master, 'windows')
-
-    # 配合Android app使用
-    def goto_shot_And(self):
-        self.frm0.destroy()
-        ShotPage(self.master, 'android')
-
-    # 只控制继电器控制软件
-    def goto_shot_nothing(self):
-        self.frm0.destroy()
-        ShotPage(self.master, 'nothing')
-
 
 class ShotPage:
     # 初始化参数配置页面
     def __init__(self, master, shot_type):
         # 初始化部分变量
-        self.parameter_frm = None
         self.master = master
         self.shot_type = shot_type
         self.vi = ValidateInput()
@@ -154,7 +148,6 @@ class ShotPage:
         self.and_columns = ['属性', '值', '等待时间(s)']
 
         # 输入参数变量
-        self.control_folder_path = None
         self.control_num = None
         self.control_duration = None
         self.control_times = None
@@ -178,96 +171,83 @@ class ShotPage:
         self.frm0 = ttk.Frame(self.master, padding=5)
         self.frm0.pack(fill=X, expand=YES, anchor=N)
 
-        # 参数输入
-        self.parameter_frm = ttk.Frame(self.frm0)
-        self.parameter_frm.pack(fill=BOTH, pady=10)
-        # 继电器控制软件参数部分
-        self.control_frame()
-
+        # 参数部分
+        # 继电器参数
+        self.relay_frame()
         # app参数frame
-        self.shot_frame()
+        self.app_frame()
 
         # 控制按钮
         self.btn_frame()
 
     # 继电器参数
-    def control_frame(self):
-        relay_frm = ttk.LabelFrame(self.parameter_frm, text='继电器参数', padding=5, bootstyle='primary')
+    def relay_frame(self):
+        relay_frm = ttk.LabelFrame(self.frm0, text='Relay Parameters', padding=5, bootstyle='primary')
         relay_frm.pack(fill=X, expand=YES, pady=5, padx=5)
-
-        path_frm = ttk.Frame(relay_frm)
-        path_frm.pack(fill=X, expand=YES, pady=5)
-        path_lbl = ttk.Label(path_frm, text='继电器路径', width=10)
-        path_lbl.pack(side=LEFT, padx=(10, 0))
-        self.control_folder_path = ttk.Entry(path_frm, textvariable='control_folder_path',
-                                             validate="focusout", validatecommand=(self.file_func, '%P'))
-        self.control_folder_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
-        btn = ttk.Button(path_frm, text='Browse', command=lambda: self.get_folder_path('control_folder_path'), width=8)
-        btn.pack(side=LEFT, padx=5)
 
         num_frm = ttk.Frame(relay_frm)
         num_frm.pack(fill=X, expand=YES, pady=5)
-        num_lbl = ttk.Label(num_frm, text='控制序号', width=10)
+        num_lbl = ttk.Label(num_frm, text='继电器序号', width=15)
         num_lbl.pack(side=LEFT, padx=(10, 0))
         self.control_num = ttk.Entry(num_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
         self.control_num.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         time_frm = ttk.Frame(relay_frm)
         time_frm.pack(fill=X, expand=YES, pady=5)
-        time_lbl = ttk.Label(time_frm, text='间隔时间(s)', width=10)
+        time_lbl = ttk.Label(time_frm, text='闭合断开间隔(s)', width=15)
         time_lbl.pack(side=LEFT, padx=(10, 0))
         self.control_duration = ttk.Entry(time_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
         self.control_duration.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         times_frm = ttk.Frame(relay_frm)
         times_frm.pack(fill=X, expand=YES, pady=5)
-        times_lbl = ttk.Label(times_frm, text='操作次数', width=10)
+        times_lbl = ttk.Label(times_frm, text='闭合断开次数', width=15)
         times_lbl.pack(side=LEFT, padx=(10, 0))
         self.control_times = ttk.Entry(times_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
         self.control_times.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
     # app参数
-    def shot_frame(self):
+    def app_frame(self):
         shot_frame = None
         if self.shot_type == 'windows':
-            shot_frame = ttk.LabelFrame(self.parameter_frm, text='Windows App参数', padding=5, bootstyle='success')
+            shot_frame = ttk.LabelFrame(self.frm0, text='Windows App Parameters', padding=5, bootstyle='success')
             shot_frame.pack(fill=X, expand=YES, pady=5, padx=5)
 
             path_frm = ttk.Frame(shot_frame)
             path_frm.pack(fill=X, expand=YES, pady=5)
-            path_lbl = ttk.Label(path_frm, text='App路径', width=10)
+            path_lbl = ttk.Label(path_frm, text='App路径(.exe)', width=15)
             path_lbl.pack(side=LEFT, padx=(10, 0))
             self.win_app_path = ttk.Entry(path_frm, textvariable='win_app_path',
                                           validate="focusout", validatecommand=(self.file_func, '%P'))
             self.win_app_path.pack(side=LEFT, fill=X, expand=YES, padx=5)
-            btn = ttk.Button(path_frm, text='Browse', command=lambda: self.get_folder_path('win_app_path'), width=8)
+            btn = ttk.Button(path_frm, text='Browse', command=lambda: self.get_exe_path('win_app_path'), width=8)
             btn.pack(side=LEFT, padx=5)
 
             name_frm = ttk.Frame(shot_frame)
             name_frm.pack(fill=X, expand=YES, pady=5)
-            name_lbl = ttk.Label(name_frm, text='主窗口名称', width=10)
+            name_lbl = ttk.Label(name_frm, text='主窗口名称', width=15)
             name_lbl.pack(side=LEFT, padx=(10, 0))
             self.win_app_name = ttk.Entry(name_frm)
             self.win_app_name.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
         elif self.shot_type == 'android':
-            shot_frame = ttk.LabelFrame(self.parameter_frm, text='Android App参数', padding=5, bootstyle='warning')
+            shot_frame = ttk.LabelFrame(self.frm0, text='Android App Parameters', padding=5, bootstyle='warning')
             shot_frame.pack(fill=X, expand=YES, pady=5, padx=5)
 
             info_frm = ttk.Frame(shot_frame)
             info_frm.pack(fill=X, expand=YES, pady=5)
-            ip_lbl = ttk.Label(info_frm, text='设备ip', width=10)
+            ip_lbl = ttk.Label(info_frm, text='设备ip', width=15)
             ip_lbl.pack(side=LEFT, padx=(10, 0))
             self.and_ip = ttk.Entry(info_frm, validate="focusout", validatecommand=(self.ip_func, '%P'))
             self.and_ip.pack(side=LEFT, fill=X, expand=YES, padx=5)
-            port_lbl = ttk.Label(info_frm, text='port', width=10)
+            port_lbl = ttk.Label(info_frm, text='port', width=15)
             port_lbl.pack(side=LEFT, padx=(10, 0))
             self.and_port = ttk.Entry(info_frm, validate="focusout", validatecommand=(self.digit_func, '%P'))
             self.and_port.pack(side=LEFT, fill=X, expand=YES, padx=5)
 
             name_frm = ttk.Frame(shot_frame)
             name_frm.pack(fill=X, expand=YES, pady=5)
-            name_lbl = ttk.Label(name_frm, text='测试包名', width=10)
+            name_lbl = ttk.Label(name_frm, text='测试包名', width=15)
             name_lbl.pack(side=LEFT, padx=(10, 0))
             self.and_name = ttk.Entry(name_frm)
             self.and_name.pack(side=LEFT, fill=X, expand=YES, padx=5)
@@ -276,7 +256,7 @@ class ShotPage:
             # Treeview
             step_frm = ttk.Frame(shot_frame)
             step_frm.pack(fill=X, expand=YES, pady=5)
-            step_lbl = ttk.Label(step_frm, text='出图步骤', width=10)
+            step_lbl = ttk.Label(step_frm, text='App出图步骤', width=15)
             step_lbl.pack(side=LEFT, padx=(10, 0))
 
             canvas = ttk.Canvas(step_frm)
@@ -299,7 +279,7 @@ class ShotPage:
             btn_frm.pack(side=LEFT, fill=Y, expand=YES)
             btn_add = ttk.Button(btn_frm, text='Add', width=8, bootstyle='success', command=self.add_steps)
             btn_add.pack(expand=YES, padx=5)
-            btn_del = ttk.Button(btn_frm, text='Del', width=8, bootstyle='DANGER', command=self.del_steps)
+            btn_del = ttk.Button(btn_frm, text='Del', width=8, bootstyle='DANGER', command=self.delete_steps)
             btn_del.pack(expand=YES, padx=5)
 
     # 功能按钮
@@ -307,12 +287,22 @@ class ShotPage:
         btn_frm = ttk.Frame(self.frm0, padding=10)
         btn_frm.pack(fill=X, anchor='s', expand=YES)
         buttons = [
-            ttk.Button(master=btn_frm, text="开始执行", width=10, bootstyle='SUCCESS-outline', command=self.start),
-            ttk.Button(master=btn_frm, text="重置参数", width=10, bootstyle='DANGER-outline',
-                       command=self.reset),
-            ttk.Button(master=btn_frm, text="返回首页", width=10, bootstyle='INFO-outline', command=self.back)]
+            ttk.Button(master=btn_frm, text='Start Executing', width=10,
+                       bootstyle='SUCCESS-outline', command=self.start),
+            ttk.Button(master=btn_frm, text='Reset Parameters', width=10,
+                       bootstyle='DANGER-outline', command=self.reset),
+            ttk.Button(master=btn_frm, text='Back to Home', width=10, bootstyle='INFO-outline',
+                       command=SwitchPage(self.master, 'home', self.frm0).switch_page)]
         for button in buttons:
             button.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
+
+    # 获取路径
+    def get_exe_path(self, path_name):
+        self.master.update_idletasks()
+        d = filedialog.askopenfilename()
+        if d:
+            self.master.setvar(path_name, d)
+            self.win_app_path.focus()
 
     # 增加自定义出图步骤
     def add_steps(self):
@@ -323,6 +313,12 @@ class ShotPage:
             cur_columns = self.and_columns
         # 直接在已有数据后填充
         self.pop_win_input(cur_columns)
+
+    # 删除自定义出图步骤
+    def delete_steps(self):
+        cur_date = self.tree_view.get_children()
+        if len(cur_date) >= 1:
+            self.tree_view.delete(cur_date[0])
 
     # 自定义出图步骤输入弹窗
     def pop_win_input(self, columns):
@@ -358,45 +354,22 @@ class ShotPage:
 
         btn_frm = ttk.Frame(pop_win, padding=10)
         btn_frm.pack(fill=X, anchor='s', expand=YES)
-        buttons = [ttk.Button(master=btn_frm, text="退出", width=10, bootstyle='DANGER-outline', command=exit_pop_win),
-                   ttk.Button(master=btn_frm, text="提交", width=10, bootstyle='SUCCESS-outline', command=deal_data)]
+        buttons = [ttk.Button(master=btn_frm, text="Exit", width=10, bootstyle='DANGER-outline', command=exit_pop_win),
+                   ttk.Button(master=btn_frm, text="Submit", width=10, bootstyle='SUCCESS-outline', command=deal_data)]
         for button in buttons:
             button.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
 
-    # 删除自定义出图步骤
-    def del_steps(self):
-        cur_date = self.tree_view.get_children()
-        if len(cur_date) >= 1:
-            self.tree_view.delete(cur_date[0])
-
-    # 获取路径
-    def get_folder_path(self, path_name):
-        self.master.update_idletasks()
-        d = filedialog.askopenfilename()
-        if d:
-            # self.master.setvar('control_folder_path', d)
-            self.master.setvar(path_name, d)
-            if path_name == 'control_folder_path':
-                self.control_folder_path.focus()
-            elif path_name == 'win_app_path':
-                self.win_app_path.focus()
-
-    # 返回主页
-    def back(self):
-        self.frm0.destroy()
-        BasePage(self.master)
-
     # 开始执行
     def start(self):
-        validate_flag = self.control_folder_path.validate() and self.control_num.validate() \
-                        and self.control_duration.validate() and self.control_times.validate()
+        validate_flag = self.control_num.validate() and self.control_duration.validate() \
+                        and self.control_times.validate()
         if self.shot_type == 'windows':
             validate_flag = validate_flag and self.win_app_path.validate() and self.win_app_name.validate()
         elif self.shot_type == 'android':
             validate_flag = validate_flag and self.and_ip.validate() and self.and_port.validate() \
                             and self.and_name.validate()
         if validate_flag:
-            app_data = {}
+            app_data = {'shot_type': self.shot_type}
             if self.shot_type != 'nothing':
                 steps = self.tree_view.get_children()
                 app_data['steps'] = []
@@ -405,41 +378,24 @@ class ShotPage:
                         line_data = self.tree_view.item(line)['values']
                         app_data['steps'].insert(0, line_data)
                 if self.shot_type == 'windows':
-                    app_data['win_app_path'] = self.win_app_path.get()
-                    app_data['win_app_name'] = self.win_app_name.get()
+                    app_data['app_path'] = self.win_app_path.get()
+                    app_data['app_name'] = self.win_app_name.get()
                 elif self.shot_type == 'android':
-                    app_data['and_ip'] = self.and_ip.get()
-                    app_data['and_port'] = self.and_port.get()
-                    app_data['and_name'] = self.and_name.get()
+                    app_data['app_path'] = self.and_ip.get() + ':' + self.and_ip.get()
+                    app_data['app_name'] = self.and_name.get()
 
-            control_folder_path = self.control_folder_path.get()
             control_num = self.control_num.get()
             control_duration = self.control_duration.get()
             control_times = self.control_times.get()
 
-            log_thread = threading.Thread(target=self.goto_log)
-            log_thread.start()
-            global log
-            global ac_thread
-            ac_thread = threading.Thread(target=self.run_ac, args=(control_folder_path, control_num, control_duration,
-                                                                   control_times, self.shot_type, log, app_data))
-            ac_thread.start()
+            self.frm0.destroy()
+            LogPage(self.master, control_num, control_duration, control_times, app_data)
+
         else:
             Messagebox.show_error(title='Error Msg', message='输入有误或未输入，请检查您的输入！！！')
 
-    @staticmethod
-    def run_ac(control_folder_path, control_num, control_duration, control_times, shot_type, app_data):
-        ac = AutoControl(control_folder_path, control_num, control_duration, control_times,
-                         shot_type, log, **app_data)
-        ac.main_func()
-
-    def goto_log(self):
-        self.frm0.destroy()
-        LogPage(self.master, self.shot_type)
-
     # 重置参数
     def reset(self):
-        self.control_folder_path.delete(0, tk.END)
         self.control_num.delete(0, tk.END)
         self.control_duration.delete(0, tk.END)
         self.control_times.delete(0, tk.END)
@@ -455,65 +411,82 @@ class ShotPage:
                 self.and_name.delete(0, tk.END)
 
 
-class LoggerBox(ScrolledText):
-    def write(self, message):
-        self.insert("end", message)
-        self.see(END)
-        self.update()
-
-
 class LogPage:
     """log页面定义"""
 
-    def __init__(self, master, shot_type):
-        self.back_btn = None
-        self.stop_btn = None
+    def __init__(self, master, control_num, control_duration, control_times, app_data):
         self.master = master
-        self.shot_type = shot_type
+        self.control_num = control_num
+        self.control_duration = control_duration
+        self.control_times = control_times
+        self.app_data = app_data
 
         # 底层frame
         self.frm0 = ttk.Frame(self.master, padding=5)
         self.frm0.pack(fill=X, expand=YES, anchor=N)
 
-        # 参数输入
-        self.parameter_frm = ttk.Frame(self.frm0)
-        self.parameter_frm.pack(fill=BOTH, pady=10)
         # 继电器控制软件参数部分
+        self.log = None
         self.log_frame()
 
         # 控制按钮
+        self.back_btn = None
+        self.stop_btn = None
         self.btn_frame()
+
+        # 执行启动
+        self.ac_thread = None
+        ac = AutoControl(self.log, control_num, control_duration, control_times, app_data)
+        self.ac_thread = threading.Thread(target=ac.main_func)
+        self.ac_thread.start()
 
     def log_frame(self):
         stream_handler_box = LoggerBox(self.frm0, width=50, height=5)
         stream_handler_box.pack(fill=BOTH)
-        global log
-        log = logging.getLogger('log')
-        log.setLevel(logging.INFO)
+        self.log = logging.getLogger('log')
+        self.log.setLevel(logging.INFO)
         handler = logging.StreamHandler(stream_handler_box)
         formatter = '[%(levelname)s %(asctime)s %(filename)s:%(lineno)d %(funcName)s] %(message)s'
         handler.formatter = formatter
-        log.addHandler(handler)
+        self.log.addHandler(handler)
 
     def btn_frame(self):
         btn_frm = ttk.Frame(self.frm0, padding=10)
         btn_frm.pack(fill=X, anchor='s', expand=YES)
-        self.stop_btn = ttk.Button(master=btn_frm, text='停止运行', width=10, bootstyle='DANGER-outline',
+        self.stop_btn = ttk.Button(master=btn_frm, text='Stop Executing', width=10, bootstyle='DANGER-outline',
                                    command=self.stop_running)
         self.stop_btn.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
-        self.back_btn = ttk.Button(master=btn_frm, text="返回设置", width=10, bootstyle='INFO-outline',
-                                   command=self.back_to_page)
+        self.back_btn = ttk.Button(master=btn_frm, text='Back to Settings', width=10, bootstyle='INFO-outline',
+                                   command=self.back_to_settings)
+        self.back_btn.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
+        self.back_btn = ttk.Button(master=btn_frm, text='Back to Home', width=10, bootstyle='INFO-outline',
+                                   command=SwitchPage(self.master, 'home', self.frm0).switch_page)
         self.back_btn.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
 
-    def back_to_page(self):
-        global ac_thread
-        if ac_thread.is_alive():
+    def back_to_settings(self):
+        if self.ac_thread.is_alive():
             Messagebox.show_error(title='Error Msg', message='程序正在运行，请先停止程序！！！')
         else:
-            self.frm0.destroy()
-            ShotPage(self.master, self.shot_type)
+            SwitchPage(self.master, self.app_data['shot_type'], self.frm0).switch_page()
 
-    @staticmethod
-    def stop_running():
-        global ac_thread
-        stop_thread(ac_thread)
+    def stop_running(self):
+        stop_thread(self.ac_thread)
+
+
+class SwitchPage:
+    def __init__(self, master, page_name, page_frame: ttk.Frame):
+        self.master = master
+        self.page_frame = page_frame
+        self.page_name = page_name
+
+    def switch_page(self):
+        self.page_frame.destroy()
+        if self.page_name.lower() in ['windows', 'android', 'nothing']:
+            ShotPage(self.master, self.page_name)
+        elif self.page_name == 'home':
+            HomePage(self.master)
+
+
+class LoggerBox(tk.Text):
+    def write(self, message):
+        self.insert("end", message)

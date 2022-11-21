@@ -178,12 +178,11 @@ class ControlSerial:
 
 
 class ScreenShotApp:
-    def __init__(self, app_info, steps, log):
+    def __init__(self, app_data, log):
         self.logcat = None
         self.logcat_file = None
         self.logcat_path = None
-        self.app_info = app_info
-        self.steps = steps
+        self.app_data = app_data
         self.log = log
         self.app = None
 
@@ -191,7 +190,7 @@ class ScreenShotApp:
             self.pic_file = os.path.dirname(sys.executable)
         elif __file__:
             self.pic_file = os.path.dirname(os.path.abspath(__file__))
-        self.pic_file = os.path.join(self.pic_file, 'ScreenShots', self.app_info['app_name'])
+        self.pic_file = os.path.join(self.pic_file, 'ScreenShots', self.app_data['app_name'])
 
     def create_pic_file(self):
         """
@@ -213,13 +212,13 @@ class ScreenShotApp:
         self.pic_file = os.path.join(self.pic_file, flag_time)
         self.create_pic_file()
 
-        if self.app_info['type'].lower() == 'windows':
-            self.log.info('start app: %s', self.app_info['app_name'])
-            self.app = Application(backend="uia").start(self.app_info['app_path'])
+        if self.app_data['shot_type'].lower() == 'windows':
+            self.log.info('start app: %s', self.app_data['app_name'])
+            self.app = Application(backend="uia").start(self.app_data['app_path'])
 
-        elif self.app_info['type'].lower() == 'android':
-            self.log.info('start app: %s', self.app_info['app_name'])
-            self.app = u2.connect(self.app_info['app_path'])
+        elif self.app_data['shot_type'].lower() == 'android':
+            self.log.info('start app: %s', self.app_data['app_name'])
+            self.app = u2.connect(self.app_data['app_path'])
             self.app.service('uiautomator').stop()
             # Maxim正常运行
             # stream模式，保证不会timeout导致杀掉，底层上是一个requests库提供的streaming 模式的response
@@ -254,33 +253,33 @@ class ScreenShotApp:
                 os.makedirs(self.logcat_path)
             logcat_filename = os.path.join(self.logcat_path, flag_time + '.txt')
             self.logcat_file = open(logcat_filename, 'w')
-            os.system(f"adb -s {self.app_info['app_path'] } logcat -c")  # 清除所有日志缓存信息
-            self.logcat = subprocess.Popen(f"adb -s {self.app_info['app_path']} logcat -v time",
+            os.system(f"adb -s {self.app_data['app_path'] } logcat -c")  # 清除所有日志缓存信息
+            self.logcat = subprocess.Popen(f"adb -s {self.app_data['app_path']} logcat -v time",
                                            stdout=self.logcat_file, stderr=subprocess.PIPE)  # 开子进程将日志输出到指定文件
             self.log.info('start capturing log: %s', str(self.logcat_file))
-            self.log.info('start app: %s', str(self.app_info['app_name']))
-            self.app.app_start(self.app_info['app_name'], wait=True)
+            self.log.info('start app: %s', str(self.app_data['app_name']))
+            self.app.app_start(self.app_data['app_name'], wait=True)
 
     def app_stop(self):
-        if self.app_info['type'].lower() == 'windows':
-            self.log.info('stop app: %s', str(self.app_info['app_name']))
-            self.app[self.app_info['app_name']].close()
+        if self.app_data['shot_type'].lower() == 'windows':
+            self.log.info('stop app: %s', str(self.app_data['app_name']))
+            self.app[self.app_data['app_name']].close()
 
-        elif self.app_info['type'].lower() == 'android':
+        elif self.app_data['shot_type'].lower() == 'android':
             self.logcat_file.close()
             self.logcat.terminate()  # 停止日志捕获
             self.log.info('stop capturing log')
-            self.log.info('stop app: %s', str(self.app_info['app_name']))
-            self.app.app_stop(self.app_info['app_name'])
+            self.log.info('stop app: %s', str(self.app_data['app_name']))
+            self.app.app_stop(self.app_data['app_name'])
 
     def shot_steps(self):
-        if len(self.steps) > 0:
+        if len(self.app_data['steps']) > 0:
             self.log.info('start operate app')
-            for step in self.steps:
+            for step in self.app_data['steps']:
                 self.log.info(f'click {step[0]} at {step[1]}')
-                if self.app_info['type'].lower() == 'windows':
+                if self.app_data['shot_type'].lower() == 'windows':
                     self.app[step[0]][step[1]].click()
-                elif self.app_info['type'].lower() == 'android':
+                elif self.app_data['shot_type'].lower() == 'android':
                     self.app(**{step[0]: step[1]}).click()
                 time.sleep(step[2]) if step[2] != '' else time.sleep(2)
 
@@ -288,83 +287,82 @@ class ScreenShotApp:
         self.log.info(f'start screenshot app: {operate_type}第{times}次.png')
         pic_name = f'{operate_type}第{times}次.png'
         pic_path = os.path.join(self.pic_file, pic_name)
-        if self.app_info['type'].lower() == 'windows':
-            self.app[self.app_info['app_name']].set_focus().capture_as_image().save(pic_path)
-        elif self.app_info['type'].lower() == 'android':
+        if self.app_data['shot_type'].lower() == 'windows':
+            self.app[self.app_data['app_name']].set_focus().capture_as_image().save(pic_path)
+        elif self.app_data['shot_type'].lower() == 'android':
             self.app.screenshot(pic_path)
 
 
 class AutoControl:
-    def __init__(self, control_app_path, control_num, control_duration, control_times, shot_type, log, **kwargs):
-        self.log = log
-        self.log.info('--------- begin of set parameters')
-        self.ca = ControlApp(control_app_path, control_num, control_duration, control_times, self.log)
-        self.shot_type = shot_type
+    def __init__(self, log, control_num, control_duration, control_times, app_data):
         self.shot_app = None
-        self.log.info(f'parameters: control app path={control_app_path}, control num={control_num}, '
-                      f'control duration={control_duration}, control_times={control_times}, shot_type={shot_type}')
-        if self.shot_type == 'windows':
-            win_app_path = kwargs.get('win_app_path')
-            win_app_name = kwargs.get('win_app_name')
-            win_steps = kwargs.get('steps')
-            self.log.info(f'Windows app parameters: win app path={win_app_path}, win_app_name={win_app_name}, '
-                          f'steps={win_steps}')
-            self.shot_app = ScreenShotWinApp(win_app_path, win_app_name, win_steps, self.log)
-        elif self.shot_type == 'android':
-            and_ip = kwargs.get('and_ip')
-            and_port = kwargs.get('and_port')
-            and_name = kwargs.get('and_name')
-            and_steps = kwargs.get('steps')
-            self.log.info(f'Android app parameters: android ip={and_ip}, android port={and_port}, '
-                          f'android app name={and_name}, steps={and_steps}')
-            self.shot_app = ScreenShotAndroidApp(and_ip, and_port, and_name, and_steps, self.log)
+        self.app_data = app_data
+        self.log = log
+
+        self.control_num = control_num
+        self.control_duration = control_duration
+        self.control_times = control_times
+
+        self.log.info('--------- begin of set parameters')
+        self.log.info(f'parameters: control num={control_num}, control duration={control_duration}, '
+                      f'control_times={control_times}, shot_type={self.app_data["shot_type"]}')
+
+        if self.app_data['shot_type'] == 'windows':
+            self.log.info(f'Windows app parameters: win app path={self.app_data["app_path"]}, '
+                          f'win_app_name={self.app_data["app_name"]}, steps={self.app_data["steps"]}')
+            self.shot_app = ScreenShotApp(app_data, self.log)
+        elif self.app_data['shot_type'] == 'android':
+            self.log.info(f'Android app parameters: android ip:port={self.app_data["app_path"]}, '
+                          f'android app name={self.app_data["app_name"]}, steps={self.app_data["steps"]}')
+            self.shot_app = ScreenShotApp(app_data, self.log)
+
+        self.ca = ControlSerial(self.log)
 
     def main_func(self):
         self.log.info('--------- begin of main run')
-        # 第一步：启动继电器控制软件
-        self.ca.start_controlApp()
-        time.sleep(3)
+        # 第一步：校验串口并打开串口
+        if self.ca.check_comport_exists():
+            if self.ca.open_comport():
+                time.sleep(3)
 
-        # 第二步：打开串口，并断开继电器
-        self.ca.open_com()
-        time.sleep(2)
-        self.ca.open_relay()
-        time.sleep(2)
+                # 第二步：闭合继电器
+                if self.ca.send_comport_data(int(self.control_num), 1):
+                    time.sleep(2)
 
-        # 第三步：判断是否配合其他app使用
-        if self.shot_type != 'nothing':
-            self.log.info('--------- begin of starting app')
-            self.shot_app.app_start()
-            time.sleep(3)
-            self.shot_app.create_cur_pic()
-        # 第四步：开始循环
-        self.log.info('--------- begin of loop')
-        for i in range(self.ca.control_times):
-            # 闭合继电器并等待
-            self.ca.close_relay()
-            self.log.info(f'wait for relay close')
-            time.sleep(self.ca.control_duration)
-            # 出图并截图
-            if self.shot_type != 'nothing':
-                self.shot_app.shot_steps()
-                self.shot_app.screen_shot(f'第{i + 1}次闭合继电器并截图', i + 1)
-            time.sleep(2)
+                    # 第三步：判断是否配合其他app使用
+                    if self.app_data['shot_type'] != 'nothing':
+                        self.log.info('--------- begin of starting app')
+                        self.shot_app.app_start()
+                        time.sleep(3)
+                        self.shot_app.create_pic_file()
 
-            # 断开继电器
-            self.ca.open_relay()
-            self.log.info(f'wait for relay open')
-            time.sleep(self.ca.control_duration)
-            # 断开继电器并截图
-            if self.shot_type != 'nothing':
-                self.shot_app.screen_shot(f'第{i + 1}次断开继电器并截图', i + 1)
-        self.log.info('--------- end loop')
+                        # 第四步：开始循环
+                        self.log.info('--------- begin of loop')
+                        for i in range(self.control_times):
+                            # 闭合继电器并等待
+                            if self.ca.send_comport_data(int(self.control_num), 1):
+                                self.log.info(f'wait for relay close')
+                                time.sleep(self.control_duration)
+                                # 出图并截图
+                                if self.app_data['shot_type'] != 'nothing':
+                                    self.shot_app.shot_steps()
+                                    self.shot_app.screen_shot(f'第{i + 1}次闭合继电器并截图', i + 1)
+                                time.sleep(2)
 
-        # 第五步：关闭控制程序
-        self.ca.close_com()
-        self.ca.exit_controlApp()
-        self.log.info('--------- end of main run')
+                                # 断开继电器
+                                if self.ca.send_comport_data(int(self.control_num), 0):
+                                    self.log.info(f'wait for relay open')
+                                    time.sleep(self.control_duration)
+                                    # 断开继电器并截图
+                                    if self.app_data['shot_type'] != 'nothing':
+                                        self.shot_app.screen_shot(f'第{i + 1}次断开继电器并截图', i + 1)
+                        self.log.info('--------- end loop')
 
-        # 第六步：打开截图文件夹
-        if app_pics != '':
-            self.log.info('--------- open pictures file')
-            os.startfile(app_pics)
+                        # 第五步：关闭控制程序
+                        self.ca.close_comport()
+                        self.log.info('--------- end of main run')
+
+                        # 第六步：打开截图文件夹
+                        if self.shot_app.pic_file != '':
+                            self.log.info('--------- open pictures file')
+                            os.startfile(self.shot_app.pic_file)
