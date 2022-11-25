@@ -5,7 +5,10 @@
 import inspect
 import ctypes
 import logging
+import os
+import sys
 import threading
+import time
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
@@ -285,7 +288,7 @@ class ShotPage:
     # 功能按钮
     def btn_frame(self):
         btn_frm = ttk.Frame(self.frm0, padding=10)
-        btn_frm.pack(fill=X, anchor='s', expand=YES)
+        btn_frm.pack(fill=X, anchor='n', expand=YES)
         buttons = [
             ttk.Button(master=btn_frm, text='Start Executing', width=10,
                        bootstyle='SUCCESS-outline', command=self.start),
@@ -392,7 +395,7 @@ class ShotPage:
             LogPage(self.master, control_num, control_duration, control_times, app_data)
 
         else:
-            Messagebox.show_error(title='Error Msg', message='输入有误或未输入，请检查您的输入！！！')
+            Messagebox.show_error(title='Error Msg', message='Input error or not, please check it！')
 
     # 重置参数
     def reset(self):
@@ -413,8 +416,9 @@ class ShotPage:
 
 class LogPage:
     """log页面定义"""
-
     def __init__(self, master, control_num, control_duration, control_times, app_data):
+        self.file_handler = None
+        self.stream_handler = None
         self.master = master
         self.control_num = control_num
         self.control_duration = control_duration
@@ -435,20 +439,44 @@ class LogPage:
         self.btn_frame()
 
         # 执行启动
+        time.sleep(0.5)
         self.ac_thread = None
         ac = AutoControl(self.log, control_num, control_duration, control_times, app_data)
-        self.ac_thread = threading.Thread(target=ac.main_func)
+        self.ac_thread = threading.Thread(target=ac.main_func, daemon=True)
         self.ac_thread.start()
 
     def log_frame(self):
-        stream_handler_box = LoggerBox(self.frm0, width=50, height=5)
-        stream_handler_box.pack(fill=BOTH)
         self.log = logging.getLogger('log')
         self.log.setLevel(logging.INFO)
-        handler = logging.StreamHandler(stream_handler_box)
-        formatter = '[%(levelname)s %(asctime)s %(filename)s:%(lineno)d %(funcName)s] %(message)s'
-        handler.formatter = formatter
-        self.log.addHandler(handler)
+        # 日志输出到屏幕
+        stream_handler_box = LoggerBox(self.frm0)
+        stream_handler_box.pack(fill=BOTH, expand=YES)
+        self.stream_handler = logging.StreamHandler(stream_handler_box)
+
+        # 日志保存到本地
+        log_file = ''
+        if getattr(sys, 'frozen', False):
+            log_file = os.path.dirname(sys.executable)
+        elif __file__:
+            log_file = os.path.dirname(os.path.abspath(__file__))
+        log_file = os.path.join(log_file, 'log')
+        if not os.path.exists(log_file):
+            os.mkdir(log_file)
+        log_file = os.path.join(log_file, 'log.txt')
+        if os.path.exists(log_file):
+            os.remove(log_file)
+        self.file_handler = logging.FileHandler(log_file, encoding='UTF-8')
+
+        # 设置日志格式
+        stream_formatter = logging.Formatter(
+            '%(levelname)s %(asctime)s:  %(message)s')
+        self.stream_handler.setFormatter(stream_formatter)
+        file_formatter = logging.Formatter(
+            '[%(levelname)s %(asctime)s %(filename)s:  %(lineno)d %(funcName)s]: %(message)s')
+        self.file_handler.setFormatter(file_formatter)
+
+        self.log.addHandler(self.stream_handler)
+        self.log.addHandler(self.file_handler)
 
     def btn_frame(self):
         btn_frm = ttk.Frame(self.frm0, padding=10)
@@ -460,17 +488,25 @@ class LogPage:
                                    command=self.back_to_settings)
         self.back_btn.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
         self.back_btn = ttk.Button(master=btn_frm, text='Back to Home', width=10, bootstyle='INFO-outline',
-                                   command=SwitchPage(self.master, 'home', self.frm0).switch_page)
+                                   command=self.back_to_home)
         self.back_btn.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
 
     def back_to_settings(self):
         if self.ac_thread.is_alive():
-            Messagebox.show_error(title='Error Msg', message='程序正在运行，请先停止程序！！！')
+            Messagebox.show_error(title='Error Msg', message='The program is running, please stop the thread first!')
         else:
             SwitchPage(self.master, self.app_data['shot_type'], self.frm0).switch_page()
 
     def stop_running(self):
-        stop_thread(self.ac_thread)
+        if self.ac_thread.is_alive():
+            stop_thread(self.ac_thread)
+            self.log.warning('Please note that the process is interrupted manually!')
+
+    def back_to_home(self):
+        if self.ac_thread.is_alive():
+            Messagebox.show_error(title='Error Msg', message='The program is running, please stop the thread first!')
+        else:
+            SwitchPage(self.master, 'home', self.frm0).switch_page()
 
 
 class SwitchPage:
@@ -487,6 +523,7 @@ class SwitchPage:
             HomePage(self.master)
 
 
-class LoggerBox(tk.Text):
+class LoggerBox(ttk.ScrolledText):
     def write(self, message):
         self.insert("end", message)
+        self.yview_moveto(1)
