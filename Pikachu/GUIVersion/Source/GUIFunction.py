@@ -95,11 +95,11 @@ class ControlSerial:
                 flag_exists = False
             else:
                 self.log.info('-------------------Available serial port devices are as follows:-------------------')
-                self.log.info('%-5s %-10s %-65s' % ('num', 'comport', 'name'))
+                self.log.info('----%-5s %-10s %-65s----' % ('num', 'comport', 'name'))
                 for i in range(len(ports_list)):
                     comport = list(ports_list[i])
                     comport_number, comport_name = comport[0], comport[1]
-                    self.log.info("%-5s %-10s %-65s" % (i, comport_number, comport_name))
+                    self.log.info('----%-5s %-10s %-65s----' % (i, comport_number, comport_name))
                     if 'Prolific PL2303GT USB Serial COM Port' in comport_name:
                         self.comport_number = comport_number
                         flag_exists = True
@@ -200,7 +200,7 @@ class ScreenShotApp:
         elif __file__:
             self.pic_file = os.path.dirname(os.path.abspath(__file__))
 
-        self.pic_file = os.path.join(self.pic_file, 'ScreenShots', self.app_data['app_name'])
+        self.pic_file = os.path.join(self.pic_file, '../ScreenShots', self.app_data['app_name'])
 
     def create_pic_file(self):
         """
@@ -271,7 +271,7 @@ class ScreenShotApp:
                 os.system(f"adb -s {self.app_data['app_path']} logcat -c")  # 清除所有日志缓存信息
                 self.logcat = subprocess.Popen(f"adb -s {self.app_data['app_path']} logcat -v time",
                                                stdout=self.logcat_file, stderr=subprocess.PIPE)  # 开子进程将日志输出到指定文件
-                self.log.info('start capturing log: %s', str(self.logcat_file))
+                self.log.info('start capturing Log: %s', str(self.logcat_file))
                 self.log.info('start app: %s', str(self.app_data['app_name']))
                 self.app.app_start(self.app_data['app_name'], wait=True)
         except:
@@ -286,7 +286,7 @@ class ScreenShotApp:
             elif self.app_data['shot_type'].lower() == 'android':
                 self.logcat_file.close()
                 self.logcat.terminate()  # 停止日志捕获
-                self.log.info('stop capturing log')
+                self.log.info('stop capturing Log')
                 self.log.info('stop app: %s', str(self.app_data['app_name']))
                 self.app.app_stop(self.app_data['app_name'])
         except:
@@ -329,7 +329,7 @@ class AutoControl:
         self.control_duration = int(control_duration)
         self.control_times = int(control_times)
 
-        self.log.info('--------- begin of set parameters ---------')
+        self.log.info('--------- begin of set parameters')
         self.log.info(f'parameters: control num={control_num}, control duration={control_duration}, '
                       f'control_times={control_times}, shot_type={self.app_data["shot_type"]}')
 
@@ -345,7 +345,9 @@ class AutoControl:
         self.ca = ControlSerial(self.log)
 
     def main_func(self):
-        self.log.info('--------- begin of main run ---------')
+        cut_flag = False
+        self.log.info('--------- begin of main run')
+        self.log.info('┌'.ljust(70, '-'))
         # 第一步：校验串口并打开串口
         if self.ca.check_comport_exists():
             if self.ca.open_comport():
@@ -357,13 +359,13 @@ class AutoControl:
 
                     # 第三步：判断是否配合其他app使用
                     if self.app_data['shot_type'] != 'nothing':
-                        self.log.info('--------- begin of starting app ---------')
+                        self.log.info('--------- begin of starting app')
                         self.shot_app.app_start()
                         time.sleep(3)
                         self.shot_app.create_pic_file()
 
                     # 第四步：开始循环
-                    self.log.info('--------- begin of loop ---------')
+                    self.log.info('--------- begin of loop')
                     for i in range(int(self.control_times)):
                         # 闭合继电器并等待
                         if self.ca.send_comport_data(int(self.control_num), 1):
@@ -373,6 +375,7 @@ class AutoControl:
                             if self.app_data['shot_type'] != 'nothing':
                                 self.shot_app.shot_steps()
                                 self.shot_app.screen_shot(f'第{i + 1}次闭合继电器并截图', i + 1)
+                                cut_flag = True
                             time.sleep(2)
 
                             # 断开继电器
@@ -382,16 +385,14 @@ class AutoControl:
                                 # 断开继电器并截图
                                 if self.app_data['shot_type'] != 'nothing':
                                     self.shot_app.screen_shot(f'第{i + 1}次断开继电器并截图', i + 1)
-                    self.log.info('--------- end loop ---------')
+                    self.log.info('--------- end loop')
 
         # 第五步：关闭控制程序
         self.ca.close_comport()
-        self.log.info('--------- end of main run ---------')
+        self.log.info('└'.ljust(70, '-'))
+        self.log.info('--------- end of main run')
 
         # 第六步：打开截图文件夹
-        if self.app_data['shot_type'] != 'nothing':
-            self.log.info('--------- open pictures file ---------')
+        if self.app_data['shot_type'] != 'nothing' and not cut_flag:
+            self.log.info('--------- open pictures file'.center(70, '='))
             os.startfile(self.shot_app.pic_file)
-
-        # 第七步: 关闭日志
-

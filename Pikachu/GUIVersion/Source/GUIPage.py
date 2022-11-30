@@ -4,9 +4,6 @@
 # datetime:2022/11/2 17:18
 import inspect
 import ctypes
-import logging
-import os
-import sys
 import threading
 import time
 import tkinter as tk
@@ -15,9 +12,9 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
 from ttkbootstrap.dialogs import Messagebox
-from GUIFunction import ValidateInput
+from Pikachu.GUIVersion.Source.GUIFunction import ValidateInput
 
-from GUIFunction import AutoControl
+from Pikachu.GUIVersion.Source.GUIFunction import AutoControl
 
 base_win_weight = 800
 base_win_height = 550
@@ -45,23 +42,24 @@ def stop_thread(thread):
 class BaseWin:
     """主窗口定义"""
 
-    def __init__(self, master):
+    def __init__(self, master, log_config):
         self.root = master
         self.root.title('HotSwap TestTool')
         self.root.geometry(str(base_win_weight) + 'x' + str(base_win_height))
         self.root.resizable(width=False, height=False)
-        HomePage(self.root)
+        HomePage(self.root, log_config)
 
 
 class HomePage:
     """主页面定义"""
 
     # 初始化页面，定义使用说明、使用前确认、功能按钮
-    def __init__(self, master):
+    def __init__(self, master, log_config):
         self.master = master
+        self.log_config = log_config
         self.frm0 = None
         self.msg = '欢迎使用Hot Swap TestTool！！！\n' \
-                   '当前版本号：v2.0.0\n' \
+                   '当前版本号：v2.0.2\n' \
                    '正式开始使用前请注意：\n' \
                    '    1. 请确保继电器已成功连接至电脑并正确安装驱动！！！\n' \
                    '    2. 默认会先断开继电器！！！\n' \
@@ -78,7 +76,7 @@ class HomePage:
                    '        e. 若需要截图，输入app相关参数\n' \
                    '        f. 开始运行\n' \
                    '        g. 等待运行\n' \
-                   '    6. 文件路径、继电器控制参数会做费控、字符串、数字校验\n' \
+                   '    6. 文件路径、继电器控制参数会做非控、字符串、数字校验\n' \
                    '    7. app信息（Windows app窗口名称、Android app包名）无法校验，请自行检查！！！\n' \
                    '\n' \
                    '若需要源码或有任何问题，请联系我zewen.fang@infisense.cn\n'
@@ -114,17 +112,17 @@ class HomePage:
         btn_frm.pack(fill=X, expand=YES, pady=10)
         self.btn_only = ttk.Button(btn_frm, text='Only Control Relay', width=25, state='disabled',
                                    bootstyle='primary-outline',
-                                   command=SwitchPage(self.master, 'nothing', self.frm0).switch_page)
+                                   command=SwitchPage(self.master, 'nothing', self.frm0, self.log_config).switch_page)
         self.btn_only.pack(side=LEFT, fill=X, expand=YES, pady=10, padx=5)
 
         self.btn_win = ttk.Button(btn_frm, text='With Windows Application', width=25, state='disabled',
                                   bootstyle='success-outline',
-                                  command=SwitchPage(self.master, 'windows', self.frm0).switch_page)
+                                  command=SwitchPage(self.master, 'windows', self.frm0, self.log_config).switch_page)
         self.btn_win.pack(side=LEFT, fill=X, expand=YES, pady=10, padx=5)
 
         self.btn_and = ttk.Button(btn_frm, text='With Android Application', width=25, state='disabled',
                                   bootstyle='warning-outline',
-                                  command=SwitchPage(self.master, 'android', self.frm0).switch_page)
+                                  command=SwitchPage(self.master, 'android', self.frm0, self.log_config).switch_page)
         self.btn_and.pack(side=LEFT, fill=X, expand=YES, pady=10, padx=5)
 
     # 根据确认复选框改变功能btn状态
@@ -141,10 +139,11 @@ class HomePage:
 
 class ShotPage:
     # 初始化参数配置页面
-    def __init__(self, master, shot_type):
+    def __init__(self, master, shot_type, log_config):
         # 初始化部分变量
         self.master = master
         self.shot_type = shot_type
+        self.log_config = log_config
         self.vi = ValidateInput()
 
         self.win_columns = ['窗口名称', '按钮名称', '等待时间(s)']
@@ -295,7 +294,7 @@ class ShotPage:
             ttk.Button(master=btn_frm, text='Reset Parameters', width=10,
                        bootstyle='DANGER-outline', command=self.reset),
             ttk.Button(master=btn_frm, text='Back to Home', width=10, bootstyle='INFO-outline',
-                       command=SwitchPage(self.master, 'home', self.frm0).switch_page)]
+                       command=SwitchPage(self.master, 'home', self.frm0, self.log_config).switch_page)]
         for button in buttons:
             button.pack(side=LEFT, fill=X, expand=YES, pady=5, padx=5)
 
@@ -392,7 +391,7 @@ class ShotPage:
             control_times = self.control_times.get()
 
             self.frm0.destroy()
-            LogPage(self.master, control_num, control_duration, control_times, app_data)
+            LogPage(self.master, self.log_config, control_num, control_duration, control_times, app_data)
 
         else:
             Messagebox.show_error(title='Error Msg', message='Input error or not, please check it！')
@@ -416,10 +415,9 @@ class ShotPage:
 
 class LogPage:
     """log页面定义"""
-    def __init__(self, master, control_num, control_duration, control_times, app_data):
-        self.file_handler = None
-        self.stream_handler = None
+    def __init__(self, master, log_config, control_num, control_duration, control_times, app_data):
         self.master = master
+        self.log_config = log_config
         self.control_num = control_num
         self.control_duration = control_duration
         self.control_times = control_times
@@ -430,7 +428,6 @@ class LogPage:
         self.frm0.pack(fill=X, expand=YES, anchor=N)
 
         # 继电器控制软件参数部分
-        self.log = None
         self.log_frame()
 
         # 控制按钮
@@ -441,42 +438,15 @@ class LogPage:
         # 执行启动
         time.sleep(0.5)
         self.ac_thread = None
-        ac = AutoControl(self.log, control_num, control_duration, control_times, app_data)
+        ac = AutoControl(self.log_config.log, control_num, control_duration, control_times, app_data)
         self.ac_thread = threading.Thread(target=ac.main_func, daemon=True)
         self.ac_thread.start()
 
     def log_frame(self):
-        self.log = logging.getLogger('log')
-        self.log.setLevel(logging.INFO)
         # 日志输出到屏幕
         stream_handler_box = LoggerBox(self.frm0)
         stream_handler_box.pack(fill=BOTH, expand=YES)
-        self.stream_handler = logging.StreamHandler(stream_handler_box)
-
-        # 日志保存到本地
-        log_file = ''
-        if getattr(sys, 'frozen', False):
-            log_file = os.path.dirname(sys.executable)
-        elif __file__:
-            log_file = os.path.dirname(os.path.abspath(__file__))
-        log_file = os.path.join(log_file, 'log')
-        if not os.path.exists(log_file):
-            os.mkdir(log_file)
-        log_file = os.path.join(log_file, 'log.txt')
-        if os.path.exists(log_file):
-            os.remove(log_file)
-        self.file_handler = logging.FileHandler(log_file, encoding='UTF-8')
-
-        # 设置日志格式
-        stream_formatter = logging.Formatter(
-            '%(levelname)s %(asctime)s:  %(message)s')
-        self.stream_handler.setFormatter(stream_formatter)
-        file_formatter = logging.Formatter(
-            '[%(levelname)s %(asctime)s %(filename)s:  %(lineno)d %(funcName)s]: %(message)s')
-        self.file_handler.setFormatter(file_formatter)
-
-        self.log.addHandler(self.stream_handler)
-        self.log.addHandler(self.file_handler)
+        self.log_config.stream_handler.setStream(stream_handler_box)
 
     def btn_frame(self):
         btn_frm = ttk.Frame(self.frm0, padding=10)
@@ -495,32 +465,33 @@ class LogPage:
         if self.ac_thread.is_alive():
             Messagebox.show_error(title='Error Msg', message='The program is running, please stop the thread first!')
         else:
-            SwitchPage(self.master, self.app_data['shot_type'], self.frm0).switch_page()
+            SwitchPage(self.master, self.app_data['shot_type'], self.frm0, self.log_config).switch_page()
 
     def stop_running(self):
         if self.ac_thread.is_alive():
             stop_thread(self.ac_thread)
-            self.log.warning('Please note that the process is interrupted manually!')
+            self.log_config.log.warning('Please note that the process is interrupted manually!')
 
     def back_to_home(self):
         if self.ac_thread.is_alive():
             Messagebox.show_error(title='Error Msg', message='The program is running, please stop the thread first!')
         else:
-            SwitchPage(self.master, 'home', self.frm0).switch_page()
+            SwitchPage(self.master, 'home', self.frm0, self.log_config).switch_page()
 
 
 class SwitchPage:
-    def __init__(self, master, page_name, page_frame: ttk.Frame):
+    def __init__(self, master, page_name, page_frame: ttk.Frame, log_config):
         self.master = master
         self.page_frame = page_frame
         self.page_name = page_name
+        self.log_config = log_config
 
     def switch_page(self):
         self.page_frame.destroy()
         if self.page_name.lower() in ['windows', 'android', 'nothing']:
-            ShotPage(self.master, self.page_name)
+            ShotPage(self.master, self.page_name, self.log_config)
         elif self.page_name == 'home':
-            HomePage(self.master)
+            HomePage(self.master, self.log_config)
 
 
 class LoggerBox(ttk.ScrolledText):
