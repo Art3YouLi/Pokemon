@@ -383,7 +383,7 @@ class ShotPage:
                     app_data['app_path'] = self.win_app_path.get()
                     app_data['app_name'] = self.win_app_name.get()
                 elif self.shot_type == 'android':
-                    app_data['app_path'] = self.and_ip.get() + ':' + self.and_ip.get()
+                    app_data['app_path'] = self.and_ip.get() + ':' + self.and_port.get()
                     app_data['app_name'] = self.and_name.get()
 
             control_num = self.control_num.get()
