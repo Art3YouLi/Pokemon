@@ -12,9 +12,7 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 from ttkbootstrap.scrolled import ScrolledText
 from ttkbootstrap.dialogs import Messagebox
-from Pikachu.GUIVersion.Source.GUIFunction import ValidateInput
-
-from Pikachu.GUIVersion.Source.GUIFunction import AutoControl
+from GUIFunction import ValidateInput, AutoControl
 
 base_win_weight = 800
 base_win_height = 550

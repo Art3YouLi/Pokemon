@@ -5,8 +5,8 @@
 import logging
 import ttkbootstrap as ttk
 
-from Pikachu.GUIVersion.Source.GUIPage import BaseWin
-from Pikachu.GUIVersion.Source.LogConfig import LogConfig
+from Source.GUIPage import BaseWin
+from Source.LogConfig import LogConfig
 
 
 if __name__ == '__main__':
