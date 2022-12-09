@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/4.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,7 +37,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'server',
+    'server_auth',
+    'channels',
+    'django_filters'  # 注册过滤
 ]
+
+REST_FRAMEWORK = {
+    # 全局过滤
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination'
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -49,13 +60,22 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# 指定websocket主路由的位置
+ASGI_APPLICATION = 'jsmindmulti.asgi.application'
+
+# 指定websocket CHANNEL_LAYERS
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
+
 ROOT_URLCONF = 'Mewtwo.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates']
-        ,
+        'DIRS': [os.path.join(BASE_DIR, 'static')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -76,8 +96,12 @@ WSGI_APPLICATION = 'Mewtwo.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'Mewtwo',
+        'USER': 'root',
+        'PASSWORD': '0401',
+        'HOST': '192.168.1.145',
+        'PORT': '3306',
     }
 }
 
@@ -110,15 +134,51 @@ TIME_ZONE = 'Asia/Shanghai'
 
 USE_I18N = True
 
+USE_L10N = True
+
 USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# 静态文件目录
+STATICFILES_DIRS = (os.path.join(BASE_DIR, 'static'),)
+
+# AUTH_USER_MODEL为我们自定义的用户类
+AUTH_USER_MODEL = "server_auth.MindUser"
+
+# 自定义 登陆手段
+AUTHENTICATION_BACKENDS = [
+    'server_auth.lib.auth.AuthBackend',
+]
+
+# session 设置
+SESSION_COOKIE_AGE = 60 * 30  # 设置过期时间10分钟，默认为两周
+SESSION_SAVE_EVERY_REQUEST = True
+
+# 日志
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.db.backends': {
+            'handlers': ['console'],
+            'propagate': True,
+            'level': 'DEBUG',
+        },
+    }
+}

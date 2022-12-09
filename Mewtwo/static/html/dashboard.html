@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>协作导图管理</title>
+    <link rel="shortcut icon" href="/static/abl1b-qks1b-001.ico"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/dashboard.css">
+    <link rel="stylesheet" type="text/css" href="/static/bootstrap-4.6.1-dist/css/bootstrap.css">
+
+    <!--script start-->
+    <script src="/static/js/jquery-1.11.3.min.js"></script>
+    <script src="https://cdn.staticfile.org/jquery-cookie/1.4.1/jquery.cookie.min.js"></script>
+    <script src="/static/bootstrap-4.6.1-dist/js/bootstrap.bundle.js"></script>  <!-- bootstrap.bundle.min.js，还包含了 Popper，用于支持工具提示（tooltip）和弹出框（popover）功能，但是不包含 jQuery。-->
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.28.0/dist/feather.min.js"></script> <!-- 图标相关-->
+    <script src="/static/js/mind/c_m_m.js"></script>
+    <script>
+        const DefaultView = function () {
+            this.websocket = null
+            this.uuid = (new Date().getTime().toString(16) + Math.random().toString(16).substr(2)).substr(2, 16)
+            this.current_page_num = 1
+            this.default_page_size = 15
+            this.title_map = new Map([["main", "我的文件"], ["share", "我的分享"], ["star", "我的收藏"], ["recycle", "回收站"]]);// k-v 的形式
+        }
+
+        DefaultView.prototype = {
+            /**界面初始化*/
+            init_view: function () {
+                const uid = $('#uid').html()
+                // 未登录
+                if (!uid || isNaN(uid)) {
+                    $('#login_register').show()
+                    setTimeout(function () {
+                        $('#login_register').click()
+                    }, 500)
+                    $('#logout_a').hide()
+                    $('#newMindModal_btn').hide()
+                } else {
+                    $('#login_register').hide()
+                    $('#logout_a').show()
+                }
+
+                // 判断页面
+                const page_tag = this.get_page_tag()
+                $('#main h5').html(this.title_map.get(page_tag))
+            },
+            get_uu_id: function () {
+                return (new Date().getTime().toString(16) + Math.random().toString(16).substr(2)).substr(2, 16)
+            },
+            /**注销登录*/
+            logout_: function () {
+                $.ajax({
+                    type: "post",
+                    url: "logout",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'xx': 'xx'},
+                    dataType: "json",
+                    success: function (data) {
+                        common_alert(data.msg)
+                        setTimeout(function () {
+                            location.reload();
+                        }, 1000)
+                    },
+                    async: false
+                });
+            },
+            /**获得源页面*/
+            get_page_tag: function () {
+                return $('#src_page').html()
+            },
+            /**获得导图*/
+            fetch_mind: function (current_page, page_size) {
+                const me = this
+                if (!current_page) {
+                    current_page = me.current_page_num
+                }
+                if (!page_size) {
+                    page_size = me.default_page_size
+                }
+                me.current_page_num = current_page
+
+                // 获得跳转源页面
+                const page_tag = me.get_page_tag()
+                $.ajax({
+                    type: `get`,
+                    url: `list?page=${current_page}&page_size=${page_size}&s_p=${page_tag}`,
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    dataType: "json",
+                    success: function (resp) {
+                        if (resp.code !== 0) {
+                            return
+                        }
+                        // clear container-fluid
+                        $('main .container-fluid').empty()
+
+                        // 解析结果
+                        const results = resp.results
+                        let idx = 0
+                        let row = $(`<div class="row"></row>`)
+
+                        results.forEach(function (item) {
+                            const uuid = me.get_uu_id()
+
+                            // 添加按钮组
+                            let sub_btn = '';
+                            if (page_tag === 'b9b101e') {
+                                sub_btn = `<a class="dropdown-item" href="javascript:void(0);" onclick="window.open('2_d?id=${item.id}&s_p=b9b101e')">编辑</a>
+                                      <a class="dropdown-item" href="javascript:void(0);" onclick="mind.del_mind(${item.id},'card_${uuid}')">删除</a>
+                                      <a class="dropdown-item" href="javascript:void(0);" onclick="mind.share_mind(${item.id})">分享</a>`
+                            } else if (page_tag === 'share') {
+                                sub_btn = `<a class="dropdown-item" href="javascript:void(0);" onclick="mind.share_cancel(${item.id})">取消分享</a>
+                                           <a class="dropdown-item" href="javascript:void(0);" onclick="mind.fetch_share_info(${item.id})">查看分享链接</a>`
+                            } else if (page_tag === 'star') {
+                                sub_btn = `<a class="dropdown-item" href="javascript:void(0);" onclick="mind.un_star(${item.id})">取消收藏</a>`
+                            } else if (page_tag === 'recycle') {
+                                sub_btn = `<a class="dropdown-item" href="javascript:void(0);" onclick="mind.del_cancel(${item.id})">恢复</a>
+                                           <a class="dropdown-item" href="javascript:void(0);" onclick="mind.del_final(${item.id})">彻底删除</a>`
+                            }
+
+                            const content = `<div class="card col-2" style="margin: 6px; margin-left: 20px;" id='card_${uuid}'>
+                                                <div class="card-body">
+                                                    <div class="card-title" style="margin-bottom: 0px;font-weight:bold;text-overflow:ellipsis;white-space:nowrap;overflow: hidden;">${item.coop_mind_name}</div>
+                                                    <hr style="margin: 0">
+                                                    <img src="/static/pic/demo_icon.png" class="card-img-top" style="margin-top: 8px;cursor: pointer;" onclick="window.open('2_d?id=${item.id}&s_p=b9b101e')">
+                                                    <div style="text-align:right;font-size: 0.8rem;margin-top: 5px;font-family: inherit;">
+                                                         <div class="btn-group btn-group-sm" role="group">
+                                                            <button id="btnGroupDrop1" type="button" class="btn btn-secondary dropdown-toggle" data-toggle="dropdown" aria-expanded="false">操作</button>
+                                                            <div class="dropdown-menu" aria-labelledby="btnGroupDrop1">${sub_btn}</div>
+                                                          </div>
+                                                    </div>
+                                                </div>
+                                            </div>`
+                            row.append(content)
+                        })
+
+                        // 如果不是3的整数倍，将剩余的添加
+                        $('main .container-fluid').append(row)
+                        me.init_pagination(resp.count, me.default_page_size)
+                        // success end
+                    },
+                    async: false
+                });
+            },
+            /**显示分享链接*/
+            show_share_url: function (u, h) {
+                const url = `s_2_d?u=${u}&h=${h}`
+                $('#share_mind_modal .modal-body').html(`分享成功，请复制以下链接进行分享：<div>${window.location.protocol}//${window.location.host}/${url}</div>`)
+                $('#share_mind_modal_a').click()
+            },
+            /**分页组件*/
+            init_pagination: function (count, page_size) {
+                const container = $('#pagination_div')
+                /**计算页数*/
+                if (count <= 0) {
+                    container.html(`<p class="text-center">无数据</p>`)
+                    return
+                }
+
+                const all_page = (count <= page_size) ? 1 : (count % page_size > 0) ? Math.floor(count / page_size) + 1 : Math.floor(count / page_size)
+                const navigation = $(`<nav aria-label="Page navigation example"></nav>`)
+                const navigation_ul = $(`<ul class="pagination justify-content-center"></ul>`)
+
+                if (this.current_page_num > 1) {
+                    navigation_ul.append(`<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="mind.fetch_mind(mind.current_page_num-1)">上一页</a></li>`)
+                }
+                for (let i = 0; i < all_page; i++) {
+                    const ctt = $(`<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="mind.fetch_mind(${i + 1})">${i + 1}</a></li>`)
+                    if (i + 1 === this.current_page_num) {
+                        ctt.addClass('active')
+                    }
+                    navigation_ul.append(ctt)
+                }
+                if (this.current_page_num < all_page) {
+                    navigation_ul.append(`<li class="page-item"><a class="page-link" href="javascript:void(0)" onclick="mind.fetch_mind(mind.current_page_num+1)">下一页</a></li>`)
+                }
+                navigation.append(navigation_ul)
+                container.empty()
+                container.append(navigation)
+            },
+            /**删除导图*/
+            del_mind: function (mind_id, card_id) {
+                const me = this
+                $.ajax({
+                    type: "delete",
+                    url: "delete",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'coop_mind_id': mind_id, 'source': 'dashboard'},
+                    dataType: "json",
+                    success: function (data) {
+                        if (data.code === 0) {
+                            primary_alert(data.msg)
+                            // $('#' + card_id).remove()
+                            setTimeout(function () {
+                                me.fetch_mind()
+                            }, 1000)
+                        } else {
+                            common_alert(data.msg)
+                        }
+                    },
+                    async: false
+                });
+            },
+            /**分享脑图*/
+            share_mind: function (mind_id) {
+                const me = this
+                $.ajax({
+                    type: "post",
+                    url: "share",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'id': mind_id},
+                    dataType: "json",
+                    success: function (resp) {
+                        me.show_share_url(`${resp.data.u}`, `${resp.data.h}`)
+                    },
+                    async: false
+                });
+            },
+            /**取消分享*/
+            share_cancel: function (mind_id) {
+                const me = this
+                $.ajax({
+                    type: "delete",
+                    url: "share",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'id': mind_id},
+                    dataType: "json",
+                    success: function (resp) {
+                        if (me.is_success_resp(resp)) {
+                            location.reload()
+                        } else {
+                            common_alert(resp.msg)
+                        }
+                    },
+                    async: false
+                });
+            },
+            /** 删除恢复*/
+            del_cancel: function (mind_id) {
+                const me = this
+                $.ajax({
+                    type: "post",
+                    url: "delete_cancel",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'coop_mind_id': mind_id, 'op_type': 'delete_cancel'},
+                    dataType: "json",
+                    success: function (resp) {
+                        common_alert(resp.msg)
+                        if (me.is_success_resp(resp)) {
+                            me.fetch_mind()
+                        }
+                    },
+                    async: false
+                });
+            },
+            /**彻底删除*/
+            del_final: function (mind_id) {
+                const me = this
+                $.ajax({
+                    type: "delete",
+                    url: "delete",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'coop_mind_id': mind_id, 'source': 'recycle'},
+                    dataType: "json",
+                    success: function (resp) {
+                        common_alert(resp.msg)
+                        if (me.is_success_resp(resp)) {
+                            me.fetch_mind()
+                        }
+                    },
+                    async: false
+                });
+            },
+            /** 取消收藏 */
+            un_star: function (mind_id) {
+                const me = this
+                $.ajax({
+                    type: "delete",
+                    url: "star",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'coop_mind_id': mind_id},
+                    dataType: "json",
+                    success: function (resp) {
+                        common_alert(resp.msg)
+                        if (me.is_success_resp(resp)) {
+                            me.fetch_mind()
+                        }
+                    },
+                    async: false
+                });
+            },
+            /**获得分享信息*/
+            fetch_share_info: function (mind_id) {
+                const me = this
+                $.ajax({
+                    type: "get",
+                    url: "share",
+                    headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                    data: {'coop_mind_id': mind_id},
+                    dataType: "json",
+                    success: function (resp) {
+                        if (me.is_success_resp(resp)) {
+                            const data = resp.data
+                            me.show_share_url(data.share_uuid, data.share_uuid_hash)
+                        } else {
+                            common_alert(resp.msg)
+                        }
+                    },
+                    async: false
+                });
+            },
+            is_success_resp(resp) {
+                return resp.code === 0
+            },
+            /** 清除注册时输入内容 */
+            clear_reg_info: function () {
+                $('#userName').val('');
+                $('#inputPassword').val('');
+                $('#inputPassword_').val('');
+            },
+            /**校验密码是否输入一致*/
+            validate_pw_eq: function (obj, inputPassword, inputPassword_) {
+                if (inputPassword !== inputPassword_) {
+                    common_alert('两次密码输入不一样，请确认！')
+                    return false
+                }
+                return true
+            },
+            /** 设置窗口名称 */
+            set_modal_title: function (title) {
+                $('#exampleModal .modal-title').html(title);
+            },
+
+            /************************************************************************************************/
+            /**初始化jquery监听*/
+            jq_listener_init: function () {
+                const me = this
+                /**监听modal窗口事件*/
+                $('#exampleModal').on('show.bs.modal', function (event) {
+                    const ws = new WebSocket(`ws://${window.location.host}/ws/qr/?${me.uuid}`)
+                    ws.onmessage = function (e) {
+                        console.log('接收到websocket消息：' + e.data)
+                    }
+                    me.websocket = ws
+                });
+                $('#exampleModal').on('hidden.bs.modal', function (event) {
+                    // console.log('关闭');
+                    if (me.websocket) {
+                        me.websocket.close()
+                    }
+                });
+
+                /**点击 扫码登录 */
+                $('#s_login_a').click(function () {
+                    $('.modal-body').hide();
+                    $('.qr_login_group').show();
+                    me.set_modal_title('登录');
+                })
+
+                // 点击注册控件
+                $('#register_a').click(function () {
+                    $('.modal-body').hide();
+                    $('.register_group').show();
+                    me.set_modal_title('注册');
+                })
+
+                // 用户名密码登录
+                $('#p_login_a').click(function () {
+                    $('.modal-body').hide();
+                    $('.pw_login_group').show();
+                    me.set_modal_title('登录');
+                })
+
+                /** 注册按钮 */
+                $('#register_button').click(function () {
+                    const userName = $('#userName').val();
+                    const inputPassword = $('#inputPassword').val();
+                    const inputPassword_ = $('#inputPassword_').val();
+
+                    if (!userName) {
+                        common_alert('请输入用户名')
+                        return
+                    }
+
+                    if (!inputPassword) {
+                        common_alert('请输入密码')
+                        return
+                    }
+
+                    // 校验输入是否一致
+                    const validate = me.validate_pw_eq(this, inputPassword, inputPassword_)
+                    if (validate) {
+                        $.ajax({
+                            type: "post",
+                            url: "register",
+                            data: {userName: userName, inputPassword: inputPassword},
+                            dataType: "json",
+                            success: function (data) {
+                                // 注册成功
+                                if (data.code === 0) {
+                                    me.clear_reg_info()
+                                    common_alert(data.msg, 'alert-primary')
+                                    setTimeout(function () {
+                                        $('#p_login_a').click()
+                                    }, 1500)
+                                } else {
+                                    // 注册失败
+                                    common_alert(data.msg)
+                                }
+                            },
+                            async: false
+                        });
+                    }
+                    // validate end
+                });
+
+                /**登录按钮*/
+                $('#login_button').click(function () {
+                    const userName_login = $('#userName_login').val();
+                    const inputPassword_login = $('#inputPassword_login').val();
+                    if (!userName_login || !inputPassword_login) {
+                        common_alert('请输入用户名和密码')
+                        return
+                    }
+                    $.ajax({
+                        type: "post",
+                        url: "login",
+                        headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                        data: {username: userName_login, password: inputPassword_login},
+                        dataType: "json",
+                        success: function (data) {
+                            // 登录成功
+                            if (data.code === 0) {
+                                common_alert(data.msg, 'alert-primary')
+                                $('#exampleModal').modal('hide')
+                                setTimeout(function () {
+                                    location.reload();
+                                }, 500)
+                            } else {
+                                // 登录失败
+                                common_alert(data.msg)
+                            }
+                        },
+                        async: false
+                    });
+                })
+
+                /**新建导图*/
+                $('#new_mind_btn').click(function () {
+                    const mind_name = $('#mindName').val()
+                    if (!mind_name) {
+                        common_alert('请输入导图名称')
+                        return
+                    }
+
+                    const post_data = {'mind_name': mind_name}
+                    $.ajax({
+                        type: "post",
+                        url: "create",
+                        headers: {"X-CSRFToken": $.cookie("csrftoken")},
+                        data: post_data,
+                        dataType: "json",
+                        success: function (resp) {
+                            if (resp.code === 0) {
+                                me.fetch_mind()
+                                $('#newMindModal').modal('hide')
+                                if ($('#exampleCheck1').prop("checked")) {
+                                    /**新页面打开*/
+                                    setTimeout(function () {
+                                        const id = resp.data
+                                        window.open('2_d?id=' + id + `&s_p=b9b101e`)
+                                    }, 500)
+                                }
+                            } else {
+                                common_alert(resp.msg)
+                            }
+                        },
+                        async: false
+                    });
+                })
+                /** 新建后打开复选框勾选事件*/
+                $('#exampleCheck1').change(function () {
+                    const checked = $(this).prop("checked")
+                    $.cookie('open_aft_create', checked, {expires: 7, path: '/'});
+                })
+
+                /** 创建导图modal 显示完毕后事件*/
+                $('#newMindModal').on('shown.bs.modal', function () {
+                    const cookie_checked_ = $.cookie('open_aft_create')
+                    $('#mindName').val('')
+                    // 从cookie中获得的是字符串
+                    if (cookie_checked_ === 'true') {
+                        $('#exampleCheck1').attr('checked', 'checked')
+                    } else {
+                        $('#exampleCheck1').removeAttr('checked');
+                    }
+                })
+                /************************************* jq_listener_init end *******************************************/
+            }
+            /** prototype end **/
+        }
+
+
+        $(function () {
+            const view = new DefaultView()
+            /**初始化*/
+            view.init_view()
+            view.jq_listener_init()
+
+            /**如果已经登录则查询列表*/
+            view.fetch_mind()
+            window.mind = view
+            // js end
+        })
+    </script>
+    <!--script end-->
+</head>
+<body>
+<div style="display: none;">
+    <span id="uid">{{ user.id }}</span>
+    <span id="src_page">{{ page }}</span>
+</div>
+
+<!-- 页眉 start-->
+<nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+    <a class="navbar-brand col-md-2 col-lg-2 mr-0 px-3" href="#">协作思维导图</a>
+    <ul class="navbar-nav px-3">
+        <li class="nav-item text-nowrap">
+            <a id="login_register" class="nav-link" href="#" data-toggle="modal" data-target="#exampleModal">登录/注册</a>
+            <a id="logout_a" class="nav-link" href="javascript:void(0)" onclick="mind.logout_()" style="display: none;">注销</a>
+            <a id="share_mind_modal_a" class="nav-link" href="#" data-toggle="modal" data-target="#share_mind_modal" style="display: none;"></a>
+        </li>
+    </ul>
+</nav>
+<!-- 页眉 end-->
+
+<!--菜单 和 内容 start-->
+<div class="container-fluid">
+    <div class="row">
+        <!-- 左侧菜单 start-->
+        <nav id="sidebarMenu" class="col-md-2 col-lg-2 d-md-block bg-light">
+            <div class="sidebar-sticky pt-3">
+                <hr/>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">
+                            <span data-feather="file-text"></span>
+                            我的脑图
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/2_share">
+                            <span data-feather="share-2"></span>
+                            我的分享
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/2_star">
+                            <span data-feather="star"></span>
+                            我的收藏
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/2_recycle">
+                            <span data-feather="trash-2"></span>
+                            回收站
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+        <!-- 左侧菜单 end-->
+
+        <!-- 右侧内容 start-->
+        <main role="main" class="col-md-10 ml-sm-auto col-lg-10 px-md-4" id="main">
+            <div style="margin-bottom: 0px;" class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h5 class="h5">全部文件</h5>
+                <button id="newMindModal_btn" type="button" class="btn btn-info" data-toggle="modal" data-target="#newMindModal">新建导图</button>
+            </div>
+            <div class="container-fluid">
+                <!--
+                <div class="row">
+                    <div class="card col-3" style="width: 18rem;margin: 8px;">
+                        <div class="card-body">
+                            <h5 class="card-title">学习进度</h5>
+                            <img src="https://img0.baidu.com/it/u=218959243,558802769&fm=253&fmt=auto&app=138&f=JPEG?w=1377&h=500" class="card-img-top" alt="...">
+                            <a href="#" class="btn btn-info">编辑</a>
+                        </div>
+                    </div>
+                </div>
+                -->
+            </div>
+
+            <!-- navigation start-->
+            <div id="pagination_div" style="margin-top: 15px;"></div>
+            <!-- navigation end-->
+        </main>
+        <!-- 右侧内容 end-->
+    </div>
+</div>
+<!--导航 和 内容 end-->
+</body>
+<script src="/static/js/mind/modal.js"></script>
+<script>
+    if (window.feather) {
+        window.feather.replace();
+    }
+</script>
+</html>
