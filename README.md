@@ -55,12 +55,23 @@ TODO:
 ---
 
 
-### Mewtwo
+### ~~Mewtwo~~
 
 ---
-20221208
+~~20221208~~
+
+~~My second tool for work.~~
+~~搭建一个私有化的支持团队协作的脑图~~
+
+---
+
+### Charmander
+
+---
+20221212
+
 My second tool for work.
 
-搭建一个私有化的支持团队协作的脑图
+从0开始，不做搬运工！！！
 
 ---
